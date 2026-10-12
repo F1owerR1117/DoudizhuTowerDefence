@@ -13,6 +13,11 @@
 ---
 演示视频：https://pan.baidu.com/s/1iIvBPrtIaZvq0sbffZoLsQ?pwd=ddzt
 游戏下载：https://pan.baidu.com/s/1r_NhR43bTL3dkG8ZVFmBcA?pwd=ddzt
+部分截图：
+<img width="1283" height="747" alt="QQ_1791822589467" src="https://github.com/user-attachments/assets/13f82f84-c2dd-4664-9e01-8252d8b7f02c" />
+<img width="1279" height="751" alt="QQ_1791822668243" src="https://github.com/user-attachments/assets/ff84d331-c408-4d3b-95da-e632b5cedae5" />
+<img width="1278" height="729" alt="QQ_1791822713317" src="https://github.com/user-attachments/assets/94ae6542-060d-4361-ba0d-32a1cdbd9eb1" />
+
 ## 快速开始
 
 ### 1. 打开项目
