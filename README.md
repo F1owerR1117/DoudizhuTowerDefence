@@ -11,7 +11,8 @@
 - **网络方案**: Photon Fusion 2
 
 ---
-演示视频： https://pan.baidu.com/s/1iIvBPrtIaZvq0sbffZoLsQ?pwd=ddzt
+演示视频：https://pan.baidu.com/s/1iIvBPrtIaZvq0sbffZoLsQ?pwd=ddzt
+游戏下载：https:/pan.baidu.com/s/1r_NhR43bTL3dkG8ZVFmBcA?pwd=ddzt 提取码: ddzt
 ## 快速开始
 
 ### 1. 打开项目
