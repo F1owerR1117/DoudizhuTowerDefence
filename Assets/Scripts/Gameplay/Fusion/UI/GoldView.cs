@@ -20,10 +20,10 @@ namespace DoudizhuTower.Gameplay.Fusion.UI
         public void Render(PlayerState player)
         {
             if (goldText != null)
-                goldText.text = player.Gold.ToString();
+                goldText.text = Mathf.FloorToInt(player.Gold).ToString();
 
             if (incomeText != null)
-                incomeText.text = $"+{player.IncomeRate}/回合";
+                incomeText.text = $"+{player.IncomeRate:F0}/秒";
         }
     }
 }

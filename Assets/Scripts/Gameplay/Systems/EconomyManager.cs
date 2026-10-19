@@ -24,6 +24,7 @@ namespace DoudizhuTower.Gameplay.Systems
         private TimerQueue _timerQueue;
         private GameStateMachine _stateMachine;
         private float _baseIncomeRate;
+        private bool _networkReadOnly;
 
         /// <summary>当前金币（委托给 Core）</summary>
         public float CurrentGold => _coreEconomy?.CurrentGold ?? 0f;
@@ -42,6 +43,7 @@ namespace DoudizhuTower.Gameplay.Systems
         /// </summary>
         public void Initialize(EconomySystem economyLogic, TimerQueue timerQueue, GameStateMachine stateMachine = null)
         {
+            _networkReadOnly = false;
             _coreEconomy = economyLogic;
             _timerQueue = timerQueue;
             _stateMachine = stateMachine;
@@ -111,6 +113,14 @@ namespace DoudizhuTower.Gameplay.Systems
         public void SetGold(float amount)
         {
             _coreEconomy?.SetGold(amount);
+        }
+
+        /// <summary>联机只读投影：显示 Fusion 权威金币状态，不启动本地经济模拟。</summary>
+        public void RenderNetworkState(float gold, float incomeRate)
+        {
+            _networkReadOnly = true;
+            UpdateGoldUI(gold);
+            UpdateIncomeUI(incomeRate);
         }
 
         /// <summary>
@@ -189,7 +199,8 @@ namespace DoudizhuTower.Gameplay.Systems
 
         private void Update()
         {
-            _coreEconomy?.UpdateEconomy(Time.deltaTime);
+            if (!_networkReadOnly)
+                _coreEconomy?.UpdateEconomy(Time.deltaTime);
             UpdateGoldFlash();
         }
 

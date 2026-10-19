@@ -57,8 +57,12 @@ namespace DoudizhuTower.Gameplay.Fusion
         private uint HashPlayerState(uint hash, PlayerState player)
         {
             hash = hash * 31 + player.Slot;
-            hash = hash * 31 + (uint)player.Gold;
-            hash = hash * 31 + (uint)player.IncomeRate;
+            hash = hash * 31 + (uint)System.BitConverter.SingleToInt32Bits(player.Gold);
+            hash = hash * 31 + (uint)System.BitConverter.SingleToInt32Bits(player.IncomeRate);
+            hash = hash * 31 + (uint)System.BitConverter.SingleToInt32Bits(player.GoldIncomeRemainder);
+            hash = hash * 31 + (uint)System.BitConverter.SingleToInt32Bits(player.AutomaticDrawElapsed);
+            hash = hash * 31 + (uint)System.BitConverter.SingleToInt32Bits(player.IncomeGrowthElapsed);
+            hash = unchecked(hash * 31 + (uint)player.TransferCooldownEndTick);
             hash = hash * 31 + player.HandCount;
             hash = hash * 31 + player.IsLandlord;
             return hash;

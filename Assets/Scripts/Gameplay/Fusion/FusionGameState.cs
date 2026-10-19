@@ -29,9 +29,27 @@ namespace DoudizhuTower.Gameplay.Fusion
         public byte DomainActive;
         public byte DomainType;
         public byte DomainSlot;
+        public byte DomainMainRank;
+        public byte DomainLength;
+        public int DomainEndTick;
+        public byte DomainPending;
+        public int DomainCooldownEndTick;
+        public byte CounterPending;
+        public byte CounterActive;
+        public byte CounterMainRank;
+        public byte CounterType;
+        public int CounterEndTick;
+        public int CounterCooldownEndTick;
 
         // 身份初始化锁（0=未就绪 1=Host 已写入全部身份数据）
         public byte IdentityReady;
+        // 0=叫分完成前未初始化牌局，1=Host 已发牌并进入对局。
+        public byte MatchReady;
+        public byte SceneReadyMask;
+        public byte GameStarted;
+        public byte GameOver;
+        public byte WinnerIsLandlord;
+        public int MatchStartTick;
 
         // 叫分阶段起始 Tick（网络同步，供 Client 计算倒计时）
         public int StateStartTick;
@@ -52,8 +70,12 @@ namespace DoudizhuTower.Gameplay.Fusion
         public byte Role;         // 0=未定 1=地主 2=农民
         public byte Bid;          // 叫分值 (0=未叫 1/2/3)
 
-        public int Gold;
-        public int IncomeRate;
+        public float Gold;
+        public float IncomeRate;
+        public float GoldIncomeRemainder;
+        public float AutomaticDrawElapsed;
+        public float IncomeGrowthElapsed;
+        public int TransferCooldownEndTick;
 
         public byte HandCount;
 

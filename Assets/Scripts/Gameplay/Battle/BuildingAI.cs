@@ -6,6 +6,7 @@ using DoudizhuTower.Core.Battle;
 using DoudizhuTower.Core.Cards;
 using DoudizhuTower.Core.Economy;
 using DoudizhuTower.Gameplay.Entities;
+using DoudizhuTower.Gameplay.Fusion;
 using DoudizhuTower.Gameplay.Network;
 using DoudizhuTower.Gameplay.Systems;
 using UnityEngine;
@@ -50,6 +51,8 @@ namespace DoudizhuTower.Gameplay.Battle
         private DoudizhuTower.UI.Battlefield.TempSlotUI _tempSlot;
 
         private int _slotIndex = -1;
+        private FusionGameManager _fusionGameManager;
+        private bool _networkDriven;
 
         public void SetNetworkContext(int slotIndex)
         {
@@ -87,6 +90,15 @@ namespace DoudizhuTower.Gameplay.Battle
 
         }
 
+        public void InitializeNetwork(CardHand hand, EconomySystem economy, BattleManager battleManager,
+            CardDeck deck, int maxSelection, float drawInterval, FusionGameManager gameManager, int slot)
+        {
+            Initialize(hand, economy, battleManager, deck, maxSelection, drawInterval);
+            _fusionGameManager = gameManager;
+            _slotIndex = slot;
+            _networkDriven = true;
+        }
+
         private bool _initLogged;
 
         private void Start()
@@ -103,6 +115,12 @@ namespace DoudizhuTower.Gameplay.Battle
 
         private void Update()
         {
+            if (_networkDriven)
+            {
+                UpdateNetworkDriven();
+                return;
+            }
+
             if (Hand == null || Hand.Count == 0 || Economy == null)
             {
                 if (!_initLogged)
@@ -178,6 +196,49 @@ namespace DoudizhuTower.Gameplay.Battle
             }
 
             Economy.UpdateEconomy(Time.deltaTime);
+        }
+
+        private void UpdateNetworkDriven()
+        {
+            if (_fusionGameManager == null || !_fusionGameManager.HasStateAuthority
+                || _slotIndex < 0 || _slotIndex >= 3 || Hand == null || Economy == null || _deck == null)
+                return;
+
+            var player = _fusionGameManager.GetPlayerState(_slotIndex);
+            Economy.SetGold(player.Gold);
+            var authoritativeIds = _fusionGameManager.GetHandCards(_slotIndex);
+            if (authoritativeIds == null || !_fusionGameManager.HasHandSnapshot(_slotIndex)) return;
+
+            bool handMatches = Hand.Count == authoritativeIds.Count;
+            if (handMatches)
+            {
+                for (int i = 0; i < authoritativeIds.Count; i++)
+                {
+                    if (Hand.Cards[i].DeckIndex != authoritativeIds[i])
+                    {
+                        handMatches = false;
+                        break;
+                    }
+                }
+            }
+
+            if (!handMatches)
+            {
+                Hand.CardsList.Clear();
+                foreach (byte id in authoritativeIds)
+                {
+                    var card = _deck.GetCardByIndex(id);
+                    if (card.DeckIndex >= 0) Hand.Add(card);
+                }
+                Hand.NotifyHandModified();
+            }
+
+            _decisionTimer += Time.deltaTime;
+            if (_decisionTimer >= decisionInterval)
+            {
+                _decisionTimer = 0f;
+                MakeDecision();
+            }
         }
 
         /// <summary>
@@ -302,7 +363,7 @@ namespace DoudizhuTower.Gameplay.Battle
 
 
             // ── 领域/反击决策 ──
-            if (_domainSystem != null)
+            if (!_networkDriven && _domainSystem != null)
             {
                 // AI 是地主：有概率使用要不起领域
                 if (_isLandlord && !_domainSystem.IsDomainActive && !_domainSystem.IsDomainOnCooldown)
@@ -395,6 +456,22 @@ namespace DoudizhuTower.Gameplay.Battle
 
             foreach (var entry in playable)
             {
+                if (_networkDriven)
+                {
+                    if (Economy.CurrentGold < entry.cost) continue;
+
+                    var routeGroup = GetComponent<RouteGroup>();
+                    int routeIndex = ChooseLane();
+                    if (routeGroup != null)
+                        routeGroup.SetRouteIndex(routeIndex);
+
+                    var indices = new byte[entry.cards.Length];
+                    for (int i = 0; i < entry.cards.Length; i++)
+                        indices[i] = (byte)entry.cards[i].DeckIndex;
+                    _fusionGameManager.SubmitPlayCards(_slotIndex, indices, routeIndex, _slotIndex);
+                    return;
+                }
+
                 if (Economy.TrySpend(entry.cost))
                 {
                     Hand.RemoveRange(entry.cards);

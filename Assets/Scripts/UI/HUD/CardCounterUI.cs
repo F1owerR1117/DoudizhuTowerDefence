@@ -25,6 +25,17 @@ namespace DoudizhuTower.UI.HUD
         [SerializeField] private TextMeshProUGUI deckRemainingLabel;
 
         private CardDeck _deck;
+        private bool _hasNetworkRemaining;
+        private int _networkRemaining;
+
+        public void SetNetworkRemaining(int remaining)
+        {
+            remaining = Mathf.Max(0, remaining);
+            if (_hasNetworkRemaining && _networkRemaining == remaining) return;
+            _hasNetworkRemaining = true;
+            _networkRemaining = remaining;
+            Refresh();
+        }
 
         public void SetDeck(CardDeck deck)
         {
@@ -35,6 +46,7 @@ namespace DoudizhuTower.UI.HUD
                 _deck.OnDeckReshuffled -= Refresh;
             }
             _deck = deck;
+            _hasNetworkRemaining = false;
             if (_deck != null)
             {
                 _deck.OnDiscarded += Refresh;
@@ -80,7 +92,7 @@ namespace DoudizhuTower.UI.HUD
             }
 
             if (deckRemainingLabel != null)
-                deckRemainingLabel.text = $"牌堆: {_deck.NetworkRemaining}";
+                deckRemainingLabel.text = $"牌堆: {(_hasNetworkRemaining ? _networkRemaining : _deck.NetworkRemaining)}";
             else
                 Debug.LogWarning("[CardCounter] deckRemainingLabel 为空");
         }

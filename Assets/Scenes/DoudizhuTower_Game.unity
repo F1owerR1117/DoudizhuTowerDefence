@@ -546,6 +546,7 @@ MonoBehaviour:
   launchTubeUI: {fileID: 1377809786}
   tempSlotUI: {fileID: 968813652}
   teammateTempSlotUI: {fileID: 2086972964}
+  laneArea: {fileID: 670269344}
   drawButton: {fileID: 647138684}
   domainSystem: {fileID: 886368684}
   domainUIController: {fileID: 785272170}

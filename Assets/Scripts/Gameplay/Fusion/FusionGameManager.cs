@@ -3,6 +3,8 @@ using Fusion;
 using UnityEngine;
 using DoudizhuTower.Gameplay.Systems;
 using DoudizhuTower.Core.Cards;
+using DoudizhuTower.Core.Economy;
+using DoudizhuTower.Config;
 using DoudizhuTower.Gameplay.Battle;
 using DoudizhuTower.Gameplay.Entities;
 
@@ -92,6 +94,21 @@ namespace DoudizhuTower.Gameplay.Fusion
         private int _currentTick = 0;
         private WorldState _pendingWorld;
         private DoudizhuTower.Gameplay.Battle.BattleManager _battleManager;
+        private Component[] _sceneBaseBuildings;
+        private CardDeck _authorityDeck;
+        private EconomyConfig _economyConfig;
+
+        /// <summary>本地玩家收到 Host 手牌快照时触发。</summary>
+        public event System.Action<byte[]> OnLocalHandSynchronized;
+        public event System.Action<int, byte[]> OnCardsPlayed;
+
+        public bool IsMatchReady => World.Game.MatchReady == 1;
+
+        public void ConfigureGameplayScene(DoudizhuTower.Gameplay.Battle.BattleManager battleManager, Component[] baseBuildings)
+        {
+            _battleManager = battleManager;
+            _sceneBaseBuildings = baseBuildings;
+        }
 
         // =========================
         // 叫分输入队列
@@ -206,9 +223,11 @@ namespace DoudizhuTower.Gameplay.Fusion
             else
             {
                 slot = _nextSlot++;
-                _playerToSlot[player] = slot;
-                _slotToPlayer[slot] = player;
             }
+
+            if (slot < 0 || slot >= 3) return;
+            _playerToSlot[player] = slot;
+            _slotToPlayer[slot] = player;
 
             Debug.Log($"[SlotAssign] Player {player.RawEncoded} → Slot {slot}");
 
@@ -241,14 +260,12 @@ namespace DoudizhuTower.Gameplay.Fusion
             {
                 LobbyIdentityService.Instance.RemoveSlot(player);
             }
-            else
+
+            if (_playerToSlot.TryGetValue(player, out int slot))
             {
-                if (_playerToSlot.TryGetValue(player, out int slot))
-                {
-                    Debug.Log($"[SlotAssign] Player {player.RawEncoded} left, Slot {slot} freed");
-                    _playerToSlot.Remove(player);
-                    _slotToPlayer.Remove(slot);
-                }
+                Debug.Log($"[SlotAssign] Player {player.RawEncoded} left, Slot {slot} freed");
+                _playerToSlot.Remove(player);
+                _slotToPlayer.Remove(slot);
             }
         }
 
@@ -345,7 +362,7 @@ namespace DoudizhuTower.Gameplay.Fusion
             }
 
             // 回退：Client 通过 WorldState 中的 PlayerRef 映射查找自己的 slot
-            if (!HasStateAuthority && Runner != null)
+            if (Runner != null)
             {
                 var world = World;
                 byte myRef = (byte)(Runner.LocalPlayer.RawEncoded & 0xFF);
@@ -354,10 +371,24 @@ namespace DoudizhuTower.Gameplay.Fusion
                 if (world.Game.Slot2PlayerRef == myRef) return 2;
             }
 
-            // Host 始终是 slot 0
-            if (HasStateAuthority) return 0;
-
             return -1;
+        }
+
+        public bool HasHandSnapshot(int slot) => _slotHandCards.ContainsKey(slot);
+
+        public void RequestLocalHandSnapshot()
+        {
+            int localSlot = GetLocalSlot();
+            if (localSlot < 0) return;
+
+            if (HasStateAuthority)
+            {
+                if (_slotHandCards.TryGetValue(localSlot, out var hostHand))
+                    OnLocalHandSynchronized?.Invoke(hostHand.ToArray());
+                return;
+            }
+
+            RpcRequestPrivateHand();
         }
 
         /// <summary>
@@ -373,7 +404,22 @@ namespace DoudizhuTower.Gameplay.Fusion
         /// </summary>
         public PlayerRef GetPlayerRef(int slot)
         {
-            return _slotToPlayer.TryGetValue(slot, out var player) ? player : default;
+            if (_slotToPlayer.TryGetValue(slot, out var player)) return player;
+            if (Runner == null || slot < 0 || slot >= 3) return default;
+
+            var world = World;
+            byte encoded = slot switch
+            {
+                0 => world.Game.Slot0PlayerRef,
+                1 => world.Game.Slot1PlayerRef,
+                _ => world.Game.Slot2PlayerRef
+            };
+            foreach (var activePlayer in Runner.ActivePlayers)
+            {
+                if ((byte)(activePlayer.RawEncoded & 0xFF) == encoded)
+                    return activePlayer;
+            }
+            return default;
         }
 
         /// <summary>
@@ -404,7 +450,8 @@ namespace DoudizhuTower.Gameplay.Fusion
             Debug.Log($"[FusionGameManager] SetDrawInput called, Instance={Instance != null}");
             _localInput = new FusionPlayerInput
             {
-                Action = 2
+                Action = 2,
+                Slot = (byte)Mathf.Max(0, GetLocalSlot())
             };
         }
 
@@ -415,7 +462,7 @@ namespace DoudizhuTower.Gameplay.Fusion
 
             // 业务层：先写入 IntentBuffer
             int slot = GetLocalSlot();
-            _intentBuffer.AddPlayCard(slot, cardIndices, routeIndex, baseIndex);
+            _intentBuffer.AddPlayCard(slot, cardIndices, routeIndex, slot);
 
             // 传输层：序列化元数据到 FusionPlayerInput
             var data = new byte[3 + cardIndices.Length];
@@ -437,7 +484,8 @@ namespace DoudizhuTower.Gameplay.Fusion
         {
             _localInput = new FusionPlayerInput
             {
-                Action = 4
+                Action = 4,
+                Slot = (byte)Mathf.Max(0, GetLocalSlot())
             };
         }
 
@@ -474,63 +522,32 @@ namespace DoudizhuTower.Gameplay.Fusion
             OnStateChanged(GamePhase.Lobby, GamePhase.Bidding);
             var world = World;
 
-            // 从 GameSession 读取叫分结果（桥接层）
-            if (GameSession.HasResult)
+            // Spawned 发生在叫分场景。此时只建立叫分所需状态，不提前发牌。
+            // 牌局只允许在 Host 确认叫分结果后初始化。
+            world.Game.Seed = Random.Range(1, int.MaxValue);
+            world.Game.Phase = 0;
+            world.Game.TurnSlot = 0;
+            world.Game.CurrentBidTurn = 0;
+            world.Game.HighestBid = 0;
+            world.Game.HighestBidder = byte.MaxValue;
+            world.Game.BidCount = 0;
+            world.Game.BidWinnerSlot = 0;
+            world.Game.IsBiddingFinished = 0;
+            world.Game.DeckCount = 54;
+            world.Game.MatchReady = 0;
+            world.Game.SceneReadyMask = 0;
+            world.Game.GameStarted = 0;
+            world.Game.GameOver = 0;
+            world.Game.WinnerIsLandlord = 0;
+            world.Game.MatchStartTick = 0;
+            _authorityDeck = null;
+            _slotHandCards.Clear();
+
+            for (int slot = 0; slot < 3; slot++)
             {
-                world.Game.Seed = GameSession.NetworkSeed;
-                world.Game.Phase = 0;
-                world.Game.TurnSlot = 0;
-                world.Game.DeckCount = 54;
-
-                int landlordSlot = GameSession.LandlordSlot;
-
-                // 创建同步牌堆，发初始手牌
-                var syncDeck = new DoudizhuTower.Core.Cards.CardDeck(GameSession.NetworkSeed);
-
-                for (int slot = 0; slot < 3; slot++)
-                {
-                    var player = CreatePlayer((byte)slot);
-                    player.IsAI = (byte)(GameSession.AISlots.Contains(slot) ? 1 : 0);
-                    player.Role = (slot == landlordSlot) ? (byte)1 : (byte)2;
-                    if (player.Role == 1) { player.Gold = 200; player.IncomeRate = 3; }
-                    else { player.Gold = 100; player.IncomeRate = 2; }
-
-                    // 发初始手牌（每个 slot 跳过前面玩家的牌，保证手牌不重复）
-                    int handCapacity = (player.Role == 1) ? 20 : 17;
-                    var hand = new DoudizhuTower.Core.Cards.CardHand(handCapacity);
-                    syncDeck.Deal(slot * 7, new DoudizhuTower.Core.Cards.CardHand(handCapacity)); // 跳过
-                    syncDeck.Deal(7, hand);
-
-                    // 存储到本地字典
-                    var cardIndices = new List<byte>();
-                    for (int i = 0; i < hand.Count; i++)
-                        cardIndices.Add((byte)hand.Cards[i].DeckIndex);
-                    _slotHandCards[slot] = cardIndices;
-
-                    // 写入 WorldState（只存数量）
-                    player.HandCount = (byte)hand.Count;
-
-                    SetPlayer(ref world, slot, player);
-                }
-
-                Debug.Log($"[FusionGameManager] 从 GameSession 初始化: seed={world.Game.Seed}, landlordSlot={landlordSlot}, ais=[{string.Join(",", GameSession.AISlots)}]");
-            }
-            else
-            {
-                // 兜底：无叫分结果（单机或异常）
-                world.Game.Seed = Random.Range(0, 999999);
-                world.Game.Phase = 0;
-                world.Game.TurnSlot = 0;
-                world.Game.DeckCount = 54;
-
-                for (int slot = 0; slot < 3; slot++)
-                {
-                    var player = CreatePlayer((byte)slot);
-                    player.IsAI = (byte)(GameSession.AISlots.Contains(slot) ? 1 : 0);
-                    SetPlayer(ref world, slot, player);
-                }
-
-                Debug.LogWarning($"[FusionGameManager] 无 GameSession 结果，使用默认值 ais=[{string.Join(",", GameSession.AISlots)}]");
+                var player = CreatePlayer((byte)slot);
+                player.IsAI = (byte)(GameSession.AISlots.Contains(slot) ? 1 : 0);
+                SetPlayer(ref world, slot, player);
             }
 
             // Host 写入全部 PlayerRef → Slot 映射供 Client 读取
@@ -798,6 +815,7 @@ namespace DoudizhuTower.Gameplay.Fusion
 
         private bool IsBiddingFinished(ref WorldState world)
         {
+            if (world.Game.IsBiddingFinished == 1) return false;
             // 条件1：所有玩家都叫过分
             if (world.Game.BidCount >= 3) return true;
             // 条件2：有人叫了最高分
@@ -817,7 +835,7 @@ namespace DoudizhuTower.Gameplay.Fusion
         /// <summary>叫分结果判定</summary>
         private void ResolveBidding(ref WorldState world)
         {
-            int landlordSlot = world.Game.HighestBidder >= 0
+            int landlordSlot = world.Game.HighestBid > 0
                 ? world.Game.HighestBidder
                 : (byte)(Runner.Tick % 3);
 
@@ -831,7 +849,7 @@ namespace DoudizhuTower.Gameplay.Fusion
 
             world.Game.BidWinnerSlot = (byte)landlordSlot;
             world.Game.IsBiddingFinished = 1;
-            world.Game.Phase = 1;
+            world.Game.Phase = 0;
             world.Game.TurnSlot = (byte)landlordSlot;
 
             Debug.Log($"[ResolveBidding] 地主=slot{landlordSlot}, 最高叫分={world.Game.HighestBid}");
@@ -889,6 +907,8 @@ namespace DoudizhuTower.Gameplay.Fusion
         private void TickPlaying()
         {
             var world = World;
+            if (world.Game.MatchReady == 0 || world.Game.GameStarted == 0) return;
+            if (world.Game.GameOver == 1) return;
 
             // 处理输入
             if (ConsumeInput(out var input))
@@ -908,14 +928,15 @@ namespace DoudizhuTower.Gameplay.Fusion
             // 处理传送
             ProcessTransfers(ref world);
 
-            // 经济更新
+            // Host 为所有槽位推进自动摸牌与经济，避免依赖每个客户端本地定时器。
+            ProcessAutomaticDraws(ref world);
             UpdateEconomy(ref world);
 
             // 回合推进
             UpdateTurn(ref world);
 
             // 战斗模拟
-            _combatSystem.Simulate(_unitBuffer, _eventBuffer, Time.deltaTime);
+            _combatSystem.Simulate(_unitBuffer, _eventBuffer, Runner.DeltaTime);
 
             World = world;
 
@@ -987,6 +1008,24 @@ namespace DoudizhuTower.Gameplay.Fusion
                 hash = HashAdd(hash, world.Game.DomainActive);
                 hash = HashAdd(hash, world.Game.DomainType);
                 hash = HashAdd(hash, world.Game.DomainSlot);
+                hash = HashAdd(hash, world.Game.DomainMainRank);
+                hash = HashAdd(hash, world.Game.DomainLength);
+                hash = HashAdd(hash, world.Game.DomainEndTick);
+                hash = HashAdd(hash, world.Game.DomainPending);
+                hash = HashAdd(hash, world.Game.DomainCooldownEndTick);
+                hash = HashAdd(hash, world.Game.CounterPending);
+                hash = HashAdd(hash, world.Game.CounterActive);
+                hash = HashAdd(hash, world.Game.CounterMainRank);
+                hash = HashAdd(hash, world.Game.CounterType);
+                hash = HashAdd(hash, world.Game.CounterEndTick);
+                hash = HashAdd(hash, world.Game.CounterCooldownEndTick);
+                hash = HashAdd(hash, world.Game.IdentityReady);
+                hash = HashAdd(hash, world.Game.MatchReady);
+                hash = HashAdd(hash, world.Game.SceneReadyMask);
+                hash = HashAdd(hash, world.Game.GameStarted);
+                hash = HashAdd(hash, world.Game.GameOver);
+                hash = HashAdd(hash, world.Game.WinnerIsLandlord);
+                hash = HashAdd(hash, world.Game.MatchStartTick);
                 hash = HashAddPlayer(hash, world.Player0);
                 hash = HashAddPlayer(hash, world.Player1);
                 hash = HashAddPlayer(hash, world.Player2);
@@ -999,6 +1038,11 @@ namespace DoudizhuTower.Gameplay.Fusion
             return hash * 31 + value;
         }
 
+        private int HashAdd(int hash, float value)
+        {
+            return HashAdd(hash, System.BitConverter.SingleToInt32Bits(value));
+        }
+
         private int HashAddPlayer(int hash, PlayerState p)
         {
             hash = HashAdd(hash, p.Slot);
@@ -1007,6 +1051,10 @@ namespace DoudizhuTower.Gameplay.Fusion
             hash = HashAdd(hash, p.Bid);
             hash = HashAdd(hash, p.Gold);
             hash = HashAdd(hash, p.IncomeRate);
+            hash = HashAdd(hash, p.GoldIncomeRemainder);
+            hash = HashAdd(hash, p.AutomaticDrawElapsed);
+            hash = HashAdd(hash, p.IncomeGrowthElapsed);
+            hash = HashAdd(hash, p.TransferCooldownEndTick);
             hash = HashAdd(hash, p.HandCount);
             hash = HashAdd(hash, p.IsLandlord);
             return hash;
@@ -1142,7 +1190,8 @@ namespace DoudizhuTower.Gameplay.Fusion
                     }
                     break;
                 case 2: // 摸牌
-                    SubmitDrawCard();
+                    if (DrawCardForSlot(ref world, slot, chargeGold: true))
+                        Debug.Log($"[FusionGameManager] 输入请求摸牌：slot={slot}");
                     break;
                 case 3: // 叫分：从传输层反序列化
                     {
@@ -1152,7 +1201,7 @@ namespace DoudizhuTower.Gameplay.Fusion
                     }
                     break;
                 case 4: // 领域
-                    SubmitDomain(slot);
+                    ApplyDomainRequest(ref world, slot, counter: false);
                     break;
             }
         }
@@ -1163,16 +1212,125 @@ namespace DoudizhuTower.Gameplay.Fusion
         private void UpdateEconomy(ref WorldState world)
         {
             var p0 = world.Player0;
-            p0.Gold += p0.IncomeRate;
+            p0.Gold += AccumulateIncome(ref p0);
+            AccumulateIncomeGrowth(ref p0);
             world.Player0 = p0;
 
             var p1 = world.Player1;
-            p1.Gold += p1.IncomeRate;
+            p1.Gold += AccumulateIncome(ref p1);
+            AccumulateIncomeGrowth(ref p1);
             world.Player1 = p1;
 
             var p2 = world.Player2;
-            p2.Gold += p2.IncomeRate;
+            p2.Gold += AccumulateIncome(ref p2);
+            AccumulateIncomeGrowth(ref p2);
             world.Player2 = p2;
+        }
+
+        private void AccumulateIncomeGrowth(ref PlayerState player)
+        {
+            if (_economyConfig == null || _economyConfig.incomeStepPerMinute <= 0f) return;
+
+            player.IncomeGrowthElapsed += Runner != null ? Runner.DeltaTime : Time.deltaTime;
+            while (player.IncomeGrowthElapsed >= 60f)
+            {
+                player.IncomeGrowthElapsed -= 60f;
+                player.IncomeRate += _economyConfig.incomeStepPerMinute;
+            }
+        }
+
+        private bool DrawCardForSlot(ref WorldState world, int slot, bool chargeGold)
+        {
+            if (!HasStateAuthority || slot < 0 || slot >= 3 || _authorityDeck == null) return false;
+            if (world.Game.MatchReady == 0 || world.Game.GameStarted == 0) return false;
+            // 网络牌索引目前是 0-53 的物理牌 ID；耗尽后禁止重洗复用 ID，避免同一手牌出现重复物理牌。
+            if (_authorityDeck.Remaining <= 0) return false;
+
+            var player = GetPlayer(world, slot);
+            int capacity = player.Role == 1 ? 20 : 17;
+            if (player.HandCount >= capacity) return false;
+
+            float cost = player.Role == 1 ? 10f : 12f;
+            if (chargeGold && player.Gold < cost) return false;
+            if (!_slotHandCards.TryGetValue(slot, out var hand))
+            {
+                hand = new List<byte>(capacity);
+                _slotHandCards[slot] = hand;
+            }
+
+            var card = _authorityDeck.Draw();
+            hand.Add((byte)card.DeckIndex);
+            if (chargeGold) player.Gold -= cost;
+            player.HandCount = (byte)hand.Count;
+            SetPlayer(ref world, slot, player);
+            world.Game.DeckCount = (byte)_authorityDeck.Remaining;
+            SyncPrivateHandToSlot(slot);
+            return true;
+        }
+
+        private void SyncPrivateHandToSlot(int slot)
+        {
+            if (!HasStateAuthority || !_slotHandCards.TryGetValue(slot, out var hand)) return;
+            var snapshot = hand.ToArray();
+
+            if (slot == GetLocalSlot())
+                OnLocalHandSynchronized?.Invoke(snapshot);
+
+            var target = GetPlayerRef(slot);
+            if (target.PlayerId != 0)
+                RpcReceivePrivateHand(target, slot, snapshot);
+        }
+
+        private bool TryResolveRpcSlot(int claimedSlot, RpcInfo info, out int slot)
+        {
+            slot = -1;
+            if (info.Source == PlayerRef.None) return false;
+            slot = GetSlot(info.Source);
+            return slot >= 0 && slot < 3 && slot == claimedSlot;
+        }
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        public void RpcRequestPrivateHand(RpcInfo info = default)
+        {
+            if (!HasStateAuthority || info.Source == PlayerRef.None) return;
+            int slot = GetSlot(info.Source);
+            if (slot >= 0) SyncPrivateHandToSlot(slot);
+        }
+
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        public void RpcReceivePrivateHand([RpcTarget] PlayerRef target, int slot, byte[] cardIndices)
+        {
+            if (HasStateAuthority || slot != GetLocalSlot() || cardIndices == null) return;
+            _slotHandCards[slot] = new List<byte>(cardIndices);
+            OnLocalHandSynchronized?.Invoke(cardIndices);
+        }
+
+        private float AccumulateIncome(ref PlayerState player)
+        {
+            float deltaTime = Runner != null ? Runner.DeltaTime : Time.deltaTime;
+            float accumulated = player.GoldIncomeRemainder + Mathf.Max(0f, player.IncomeRate) * deltaTime;
+            float wholeGold = Mathf.Floor(accumulated);
+            player.GoldIncomeRemainder = accumulated - wholeGold;
+            return wholeGold;
+        }
+
+        private void ProcessAutomaticDraws(ref WorldState world)
+        {
+            if (_authorityDeck == null || world.Game.MatchReady == 0 || world.Game.GameStarted == 0) return;
+
+            float deltaTime = Runner != null ? Runner.DeltaTime : Time.deltaTime;
+            for (int slot = 0; slot < 3; slot++)
+            {
+                var player = GetPlayer(world, slot);
+                float interval = player.Role == 1 ? 5f : 6f;
+                player.AutomaticDrawElapsed += deltaTime;
+                bool shouldDraw = player.AutomaticDrawElapsed >= interval;
+                if (shouldDraw) player.AutomaticDrawElapsed -= interval;
+                SetPlayer(ref world, slot, player);
+
+                if (shouldDraw && DrawCardForSlot(ref world, slot, chargeGold: false))
+                    Debug.Log($"[FusionGameManager] 自动摸牌：slot={slot}");
+            }
         }
 
         // =========================
@@ -1186,38 +1344,88 @@ namespace DoudizhuTower.Gameplay.Fusion
         }
 
         // =========================
-        // 领域系统（Phase 3：Host 权威，简化版）
+        // 领域系统（Host 权威状态）
         // =========================
 
         /// <summary>
-        /// 处理领域状态。
-        /// Host 权威：只有 Host 修改 DomainActive/DomainType/DomainSlot。
-        /// Client 只读 WorldState 中的领域状态。
+        /// 推进网络领域和反制护盾的 Host 权威计时器。
         /// </summary>
         private void ProcessDomain(ref WorldState world)
         {
-            // 领域持续时间：每 100 tick 自动关闭
-            if (world.Game.DomainActive == 1)
+            int tick = Runner != null ? Runner.Tick : Time.frameCount;
+            if (world.Game.DomainActive == 1 && tick >= world.Game.DomainEndTick)
             {
                 world.Game.DomainActive = 0;
+                world.Game.CounterPending = 0;
                 Debug.Log($"[ProcessDomain] 领域关闭: slot={world.Game.DomainSlot}");
             }
+            if (world.Game.CounterActive == 1 && tick >= world.Game.CounterEndTick)
+                world.Game.CounterActive = 0;
         }
 
-        /// <summary>
-        /// 激活领域（Host 调用）。
-        /// </summary>
-        public void ActivateDomain(int slot, byte domainType)
+        public void SubmitDomain(int slot, bool counter = false)
         {
-            if (!Object.HasStateAuthority) return;
+            if (slot < 0 || slot >= 3 || State != GamePhase.Playing) return;
+            if (HasStateAuthority) ApplyDomainRequest(slot, counter);
+            else RpcSubmitDomain(slot, counter);
+        }
 
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority, HostMode = RpcHostMode.SourceIsHostPlayer)]
+        public void RpcSubmitDomain(int slot, bool counter, RpcInfo info = default)
+        {
+            if (!HasStateAuthority || !TryResolveRpcSlot(slot, info, out int sourceSlot)) return;
+            ApplyDomainRequest(sourceSlot, counter);
+        }
+
+        public void SubmitTransfer(int slot, byte cardDeckIndex)
+        {
+            if (slot < 0 || slot >= 3 || State != GamePhase.Playing || cardDeckIndex >= 54) return;
+            if (HasStateAuthority)
+            {
+                _intentBuffer.AddTransfer(slot, cardDeckIndex);
+                return;
+            }
+            RpcSubmitTransfer(slot, cardDeckIndex);
+        }
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority, HostMode = RpcHostMode.SourceIsHostPlayer)]
+        public void RpcSubmitTransfer(int slot, byte cardDeckIndex, RpcInfo info = default)
+        {
+            if (!HasStateAuthority || !TryResolveRpcSlot(slot, info, out int sourceSlot)
+                || cardDeckIndex >= 54 || World.Game.GameStarted == 0)
+                return;
+            _intentBuffer.AddTransfer(sourceSlot, cardDeckIndex);
+        }
+
+        private void ApplyDomainRequest(int slot, bool counter)
+        {
+            if (!HasStateAuthority) return;
             var world = World;
-            world.Game.DomainActive = 1;
-            world.Game.DomainType = domainType;
-            world.Game.DomainSlot = (byte)slot;
+            if (!ApplyDomainRequest(ref world, slot, counter)) return;
             World = world;
+        }
 
-            Debug.Log($"[ProcessDomain] 领域激活: slot={slot}, type={domainType}");
+        private bool ApplyDomainRequest(ref WorldState world, int slot, bool counter)
+        {
+            if (!HasStateAuthority || slot < 0 || slot >= 3) return false;
+            if (world.Game.GameStarted == 0 || world.Game.GameOver == 1) return false;
+            var player = GetPlayer(world, slot);
+            if (counter)
+            {
+                int tick = Runner != null ? Runner.Tick : Time.frameCount;
+                if (player.IsLandlord == 1 || world.Game.DomainActive != 1 || world.Game.CounterActive == 1
+                    || tick < world.Game.CounterCooldownEndTick) return false;
+                world.Game.CounterPending = world.Game.CounterPending == 1 ? (byte)0 : (byte)1;
+            }
+            else
+            {
+                int tick = Runner != null ? Runner.Tick : Time.frameCount;
+                if (player.IsLandlord != 1 || world.Game.DomainActive == 1 || world.Game.CounterActive == 1
+                    || tick < world.Game.DomainCooldownEndTick) return false;
+                world.Game.DomainPending = world.Game.DomainPending == 1 && world.Game.DomainSlot == slot ? (byte)0 : (byte)1;
+                world.Game.DomainSlot = (byte)slot;
+            }
+            return true;
         }
 
         /// <summary>
@@ -1251,7 +1459,14 @@ namespace DoudizhuTower.Gameplay.Fusion
         /// </summary>
         private void ApplyTransfer(ref WorldState world, TransferIntent intent)
         {
+            if (!HasStateAuthority || intent.SenderSlot < 0 || intent.SenderSlot >= 3
+                || intent.CardDeckIndex >= 54 || world.Game.GameStarted == 0 || world.Game.GameOver == 1)
+                return;
+
             var sender = GetPlayer(world, intent.SenderSlot);
+            int currentTick = Runner != null ? Runner.Tick : Time.frameCount;
+            if (sender.IsLandlord == 1 || currentTick < sender.TransferCooldownEndTick)
+                return;
 
             // 验证：发送方手牌中是否有此牌
             if (!_slotHandCards.TryGetValue(intent.SenderSlot, out var senderHand))
@@ -1274,6 +1489,15 @@ namespace DoudizhuTower.Gameplay.Fusion
                 return;
             }
 
+            var receiver = GetPlayer(world, receiverSlot);
+            int receiverCapacity = receiver.Role == 1 ? 20 : 17;
+            var transferCard = _authorityDeck != null
+                ? _authorityDeck.GetCardByIndex(intent.CardDeckIndex)
+                : default;
+            if (transferCard.DeckIndex < 0 || receiver.HandCount >= receiverCapacity
+                || CardTypeDetector.Detect(new[] { transferCard }, 20).Type != CardType.Single)
+                return;
+
             // 从发送方移除
             senderHand.Remove(intent.CardDeckIndex);
             sender.HandCount = (byte)senderHand.Count;
@@ -1286,9 +1510,14 @@ namespace DoudizhuTower.Gameplay.Fusion
                 _slotHandCards[receiverSlot] = receiverHand;
             }
             receiverHand.Add(intent.CardDeckIndex);
-            var receiver = GetPlayer(world, receiverSlot);
             receiver.HandCount = (byte)receiverHand.Count;
             SetPlayer(ref world, receiverSlot, receiver);
+
+            int ticksPerSecond = Runner != null ? Mathf.Max(1, Mathf.RoundToInt(1f / Runner.DeltaTime)) : 60;
+            sender.TransferCooldownEndTick = currentTick + 6 * ticksPerSecond;
+            SetPlayer(ref world, intent.SenderSlot, sender);
+            SyncPrivateHandToSlot(intent.SenderSlot);
+            SyncPrivateHandToSlot(receiverSlot);
 
             Debug.Log($"[ProcessTransfer] slot={intent.SenderSlot} → slot={receiverSlot}, card={intent.CardDeckIndex}");
         }
@@ -1332,12 +1561,138 @@ namespace DoudizhuTower.Gameplay.Fusion
         /// <summary>叫分结果确认后，推进到 Playing 阶段（由 UI 确认按钮调用）</summary>
         public void ConfirmBidding()
         {
+            if (!HasStateAuthority) return;
             if (State != GamePhase.Bidding) return;
             var world = World;
             if (world.Game.IsBiddingFinished != 1) return;
+
+            if (world.Game.MatchReady == 0)
+            {
+                InitializeMatchState(ref world);
+                World = world;
+            }
+
             GameSession.SetNetworkMode(true);
             GameSession.SetResultNetwork(world.Game.BidWinnerSlot, world.Game.HighestBid > 0 ? world.Game.HighestBid : 1f);
             NextState(GamePhase.Playing);
+        }
+
+        private void InitializeMatchState(ref WorldState world)
+        {
+            int landlordSlot = Mathf.Clamp(world.Game.BidWinnerSlot, 0, 2);
+            _economyConfig = Resources.Load<EconomyConfig>("Config/EconomyConfig");
+            var economyConfig = _economyConfig;
+            float farmerIncomeRate = economyConfig != null ? economyConfig.farmerBaseIncome : 5f;
+            float landlordIncomeRate = farmerIncomeRate + (economyConfig != null ? economyConfig.landlordBonusIncome : 2f);
+            _authorityDeck = new CardDeck(world.Game.Seed);
+            _slotHandCards.Clear();
+
+            for (int slot = 0; slot < 3; slot++)
+            {
+                var player = GetPlayer(world, slot);
+                player.Slot = (byte)slot;
+                player.Role = slot == landlordSlot ? (byte)1 : (byte)2;
+                player.IsLandlord = slot == landlordSlot ? (byte)1 : (byte)0;
+                player.Gold = slot == landlordSlot ? 200f : 100f;
+                player.IncomeRate = slot == landlordSlot ? landlordIncomeRate : farmerIncomeRate;
+                player.GoldIncomeRemainder = 0f;
+                player.AutomaticDrawElapsed = 0f;
+                player.IncomeGrowthElapsed = 0f;
+                player.TransferCooldownEndTick = 0;
+
+                int capacity = slot == landlordSlot ? 20 : 17;
+                var hand = new CardHand(capacity);
+                _authorityDeck.Deal(7, hand);
+
+                var ids = new List<byte>(hand.Count);
+                for (int i = 0; i < hand.Count; i++)
+                    ids.Add((byte)hand.Cards[i].DeckIndex);
+
+                _slotHandCards[slot] = ids;
+                player.HandCount = (byte)ids.Count;
+                SetPlayer(ref world, slot, player);
+            }
+
+            world.Game.Phase = 1;
+            world.Game.TurnSlot = (byte)landlordSlot;
+            world.Game.DeckCount = (byte)_authorityDeck.Remaining;
+            world.Game.MatchReady = 1;
+            world.Game.SceneReadyMask = 0;
+            world.Game.GameStarted = 0;
+            world.Game.GameOver = 0;
+            world.Game.WinnerIsLandlord = 0;
+            world.Game.DomainActive = 0;
+            world.Game.DomainPending = 0;
+            world.Game.CounterPending = 0;
+            world.Game.CounterActive = 0;
+            world.Game.DomainType = 0;
+            world.Game.DomainMainRank = 0;
+            world.Game.DomainLength = 0;
+            world.Game.DomainEndTick = 0;
+            world.Game.CounterType = 0;
+            world.Game.CounterMainRank = 0;
+            world.Game.CounterEndTick = 0;
+            world.Game.DomainCooldownEndTick = 0;
+            world.Game.CounterCooldownEndTick = 0;
+            world.Game.MatchStartTick = Runner != null ? Runner.Tick : 0;
+            Debug.Log($"[FusionGameManager] 对局初始化完成：seed={world.Game.Seed}, landlord={landlordSlot}, deck={world.Game.DeckCount}");
+        }
+
+        public void ReportGameEnded(bool hostPerspectivePlayerWon)
+        {
+            if (!HasStateAuthority) return;
+            var world = World;
+            if (world.Game.GameOver == 1) return;
+
+            int hostSlot = GetLocalSlot();
+            bool hostIsLandlord = hostSlot >= 0 && GetPlayer(world, hostSlot).IsLandlord == 1;
+            bool winnerIsLandlord = hostPerspectivePlayerWon == hostIsLandlord;
+            world.Game.GameOver = 1;
+            world.Game.WinnerIsLandlord = winnerIsLandlord ? (byte)1 : (byte)0;
+            world.Game.Phase = 2;
+            World = world;
+            NextState(GamePhase.End);
+        }
+
+        public void MarkLocalSceneReady()
+        {
+            int slot = GetLocalSlot();
+            if (slot < 0 || slot >= 3) return;
+            if (HasStateAuthority) MarkSceneReady(slot);
+            else RpcMarkSceneReady(slot);
+        }
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority, HostMode = RpcHostMode.SourceIsHostPlayer)]
+        public void RpcMarkSceneReady(int claimedSlot, RpcInfo info = default)
+        {
+            if (!HasStateAuthority || !TryResolveRpcSlot(claimedSlot, info, out int slot)) return;
+            MarkSceneReady(slot);
+        }
+
+        private void MarkSceneReady(int slot)
+        {
+            if (!HasStateAuthority || slot < 0 || slot >= 3) return;
+            var world = World;
+            if (world.Game.MatchReady == 0) return;
+
+            world.Game.SceneReadyMask |= (byte)(1 << slot);
+            bool allHumanPlayersReady = true;
+            for (int i = 0; i < 3; i++)
+            {
+                if (GetPlayer(world, i).IsAI == 1) continue;
+                if ((world.Game.SceneReadyMask & (1 << i)) == 0)
+                {
+                    allHumanPlayersReady = false;
+                    break;
+                }
+            }
+
+            if (allHumanPlayersReady)
+            {
+                world.Game.GameStarted = 1;
+                Debug.Log("[FusionGameManager] 全部真人玩家场景就绪，对局开始");
+            }
+            World = world;
         }
 
         /// <summary>
@@ -1346,6 +1701,7 @@ namespace DoudizhuTower.Gameplay.Fusion
         public void SubmitBid(int slot, int bid)
         {
             if (State != GamePhase.Bidding) return;
+            if (slot < 0 || slot >= 3 || bid < 0 || bid > 3) return;
             var world = World;
             if (slot != world.Game.CurrentBidTurn) return;
             _bidInputs.Enqueue(new BidInput { Slot = slot, Bid = bid });
@@ -1354,123 +1710,75 @@ namespace DoudizhuTower.Gameplay.Fusion
         /// <summary>
         /// Client 通过 RPC 向 Host 提交叫分。
         /// </summary>
-        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
-        public void RpcSubmitBid(int slot, int bid)
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority, HostMode = RpcHostMode.SourceIsHostPlayer)]
+        public void RpcSubmitBid(int slot, int bid, RpcInfo info = default)
         {
-            Debug.Log($"[RpcSubmitBid] slot={slot} bid={bid} from={Runner.LocalPlayer}");
-            SubmitBid(slot, bid);
+            if (!HasStateAuthority || !TryResolveRpcSlot(slot, info, out int sourceSlot)) return;
+            Debug.Log($"[RpcSubmitBid] slot={sourceSlot} bid={bid} from={info.Source}");
+            SubmitBid(sourceSlot, bid);
         }
 
         /// <summary>
         /// Client 通过 RPC 向 Host 请求摸牌。
         /// </summary>
-        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
-        public void RpcDrawCard(int slot)
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority, HostMode = RpcHostMode.SourceIsHostPlayer)]
+        public void RpcDrawCard(int slot, RpcInfo info = default)
         {
-            Debug.Log($"[RpcDrawCard] slot={slot}");
-            var world = World;
-            var player = GetPlayer(world, slot);
-            if (player.HandCount >= 20) return;
-            if (world.Game.DeckCount <= 0) return;
+            if (!HasStateAuthority || !TryResolveRpcSlot(slot, info, out int sourceSlot)) return;
+            if (State != GamePhase.Playing) return;
 
-            byte newCardId = (byte)((54 - world.Game.DeckCount) % 54);
-            if (!_slotHandCards.TryGetValue(slot, out var handCards))
-            {
-                handCards = new List<byte>();
-                _slotHandCards[slot] = handCards;
-            }
-            handCards.Add(newCardId);
-            player.HandCount = (byte)handCards.Count;
-            SetPlayer(ref world, slot, player);
-            world.Game.DeckCount--;
-            World = world;
+            var world = World;
+            if (DrawCardForSlot(ref world, sourceSlot, chargeGold: true))
+                World = world;
         }
 
         /// <summary>
         /// Client 通过 RPC 向 Host 提交出牌。
         /// </summary>
-        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
-        public void RpcPlayCard(int slot, byte[] cardIndices, int routeIndex, int baseIndex)
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority, HostMode = RpcHostMode.SourceIsHostPlayer)]
+        public void RpcPlayCard(int slot, byte[] cardIndices, int routeIndex, int baseIndex, RpcInfo info = default)
         {
-            Debug.Log($"[RpcPlayCard] slot={slot} cards={cardIndices.Length} route={routeIndex} base={baseIndex}");
-            _intentBuffer.AddPlayCard(slot, cardIndices, routeIndex, baseIndex);
+            if (!HasStateAuthority || !TryResolveRpcSlot(slot, info, out int sourceSlot)) return;
+            if (cardIndices == null || cardIndices.Length == 0 || cardIndices.Length > 20) return;
+            if (World.Game.MatchReady == 0 || World.Game.GameStarted == 0)
+            {
+                SyncPrivateHandToSlot(sourceSlot);
+                return;
+            }
+            Debug.Log($"[RpcPlayCard] slot={sourceSlot} cards={cardIndices.Length} route={routeIndex} base={baseIndex}");
+            _intentBuffer.AddPlayCard(sourceSlot, cardIndices, routeIndex, sourceSlot);
         }
 
-        // ─── 客户端同步 RPC ───
-
-        private int _syncedDeckCount;
-        private int[] _syncedGold = new int[3];
-
-        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
-        public void RpcSyncDeckCount(int deckCount)
+        public void SubmitPlayCards(int slot, byte[] cardIndices, int routeIndex, int baseIndex)
         {
-            if (HasStateAuthority) return;
-            _syncedDeckCount = deckCount;
-        }
+            if (slot < 0 || slot >= 3 || cardIndices == null || cardIndices.Length == 0) return;
+            if (HasStateAuthority)
+            {
+                if (State == GamePhase.Playing && World.Game.MatchReady == 1 && World.Game.GameStarted == 1)
+                    _intentBuffer.AddPlayCard(slot, cardIndices, routeIndex, slot);
+                return;
+            }
 
-        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
-        public void RpcSyncHandCards(int slot, byte[] cardIndices)
-        {
-            if (HasStateAuthority) return;
-            _slotHandCards[slot] = new List<byte>(cardIndices);
+            RpcPlayCard(slot, cardIndices, routeIndex, baseIndex);
         }
-
-        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
-        public void RpcSyncGold(int slot, int gold)
-        {
-            if (HasStateAuthority) return;
-            if (slot >= 0 && slot < 3) _syncedGold[slot] = gold;
-        }
-
-        public int GetSyncedDeckCount() => _syncedDeckCount;
-        public int GetSyncedGold(int slot) => (slot >= 0 && slot < 3) ? _syncedGold[slot] : 0;
 
         /// <summary>
         /// 提交摸牌请求（UI 唯一入口）。
         /// </summary>
         public void SubmitDrawCard()
         {
-            if (State != GamePhase.Playing) return;
-
-            var world = World;
             int mySlot = GetLocalSlot();
             if (mySlot < 0) return;
-
-            var player = GetPlayer(world, mySlot);
-            if (player.HandCount >= 20) return;
-            if (world.Game.DeckCount <= 0) return;
-
-            // 从牌堆摸牌
-            byte newCardId = (byte)((54 - world.Game.DeckCount) % 54);
-            if (!_slotHandCards.TryGetValue(mySlot, out var handCards))
+            if (HasStateAuthority)
             {
-                handCards = new List<byte>();
-                _slotHandCards[mySlot] = handCards;
+                if (State != GamePhase.Playing) return;
+                var world = World;
+                if (DrawCardForSlot(ref world, mySlot, chargeGold: true))
+                    World = world;
+                return;
             }
-            handCards.Add(newCardId);
-            player.HandCount = (byte)handCards.Count;
-            SetPlayer(ref world, mySlot, player);
-            world.Game.DeckCount--;
-            World = world;
 
-            Debug.Log($"[FusionGameManager] 摸牌: slot={mySlot}, card={newCardId}, 剩余={world.Game.DeckCount}");
-        }
-
-        /// <summary>
-        /// 提交领域激活请求（UI 唯一入口）。
-        /// </summary>
-        public void SubmitDomain(int slot)
-        {
-            if (State != GamePhase.Playing) return;
-
-            var world = World;
-            if (world.Game.DomainActive == 1) return;
-
-            world.Game.DomainActive = 1;
-            world.Game.DomainSlot = (byte)slot;
-            World = world;
-
-            Debug.Log($"[FusionGameManager] 领域激活: slot={slot}");
+            RpcDrawCard(mySlot);
         }
 
         /// <summary>
@@ -1502,7 +1810,7 @@ namespace DoudizhuTower.Gameplay.Fusion
         private void ApplyBid(ref WorldState world, int slot, int bid)
         {
             // 防御：非叫分阶段禁止执行
-            if (world.Game.Phase != 0) return;
+            if (world.Game.Phase != 0 || world.Game.IsBiddingFinished == 1) return;
 
             // 轮次校验：只能在自己的回合叫分
             if (slot != world.Game.CurrentBidTurn) return;
@@ -1532,10 +1840,7 @@ namespace DoudizhuTower.Gameplay.Fusion
 
             // 结束条件
             if (world.Game.BidCount >= 3)
-            {
-                world.Game.Phase = 1;
                 ApplyBidResult(ref world);
-            }
         }
 
         /// <summary>
@@ -1557,7 +1862,7 @@ namespace DoudizhuTower.Gameplay.Fusion
         /// </summary>
         private void ApplyBidResult(ref WorldState world)
         {
-            int landlordSlot = world.Game.HighestBidder >= 0
+            int landlordSlot = world.Game.HighestBid > 0
                 ? world.Game.HighestBidder
                 : Random.Range(0, 3);
 
@@ -1572,12 +1877,10 @@ namespace DoudizhuTower.Gameplay.Fusion
             // 设置叫分结束状态（Fusion 自动同步到 Client）
             world.Game.BidWinnerSlot = (byte)landlordSlot;
             world.Game.IsBiddingFinished = 1;
-            world.Game.Phase = 1;
+            world.Game.Phase = 0;
 
             Debug.Log($"[ProcessBidding] 叫分结束: 地主=slot{landlordSlot}, 最高叫分={world.Game.HighestBid}");
 
-            // 推进状态机到出牌阶段
-            NextState(GamePhase.Playing);
         }
 
         // =========================
@@ -1602,85 +1905,238 @@ namespace DoudizhuTower.Gameplay.Fusion
         /// </summary>
         private void ApplyPlayCards(ref WorldState world, PlayCardIntent intent)
         {
-            if (intent.CardDeckIndices == null || intent.CardDeckIndices.Length == 0) return;
-
-            var player = GetPlayer(world, intent.Slot);
-
-            // 获取手牌
-            if (!_slotHandCards.TryGetValue(intent.Slot, out var handCards))
+            if (!HasStateAuthority || world.Game.MatchReady == 0 || world.Game.GameStarted == 0 || intent.Slot < 0 || intent.Slot >= 3)
             {
-                Debug.LogWarning($"[ProcessPlayCards] slot={intent.Slot} 无手牌数据");
+                RejectPlay(intent.Slot, "牌局未就绪或玩家槽位无效");
                 return;
             }
 
-            // 验证：手牌中是否有这些牌
-            foreach (var cardIndex in intent.CardDeckIndices)
+            if (intent.CardDeckIndices == null || intent.CardDeckIndices.Length == 0)
             {
-                if (!handCards.Contains(cardIndex))
+                RejectPlay(intent.Slot, "未选择手牌");
+                return;
+            }
+
+            if (!_slotHandCards.TryGetValue(intent.Slot, out var handCards))
+            {
+                RejectPlay(intent.Slot, "Host 没有该玩家的权威手牌");
+                return;
+            }
+
+            var player = GetPlayer(world, intent.Slot);
+            int maxSelection = player.Role == 1 ? 6 : 5;
+            if (intent.CardDeckIndices.Length > maxSelection)
+            {
+                RejectPlay(intent.Slot, "选牌数量超过身份限制");
+                return;
+            }
+
+            var distinctIds = new HashSet<byte>();
+            var cards = new Card[intent.CardDeckIndices.Length];
+            var deck = new CardDeck(world.Game.Seed);
+            for (int i = 0; i < intent.CardDeckIndices.Length; i++)
+            {
+                byte id = intent.CardDeckIndices[i];
+                if (id >= 54 || !distinctIds.Add(id) || !handCards.Contains(id))
                 {
-                    Debug.LogWarning($"[ProcessPlayCards] slot={intent.Slot} 手牌中无此牌: DeckIndex={cardIndex}");
+                    RejectPlay(intent.Slot, $"手牌不存在或牌索引重复: {id}");
+                    return;
+                }
+
+                cards[i] = deck.GetCardByIndex(id);
+                if (cards[i].DeckIndex < 0)
+                {
+                    RejectPlay(intent.Slot, $"无法还原牌索引: {id}");
                     return;
                 }
             }
 
-            // 验证：金币是否足够（简化：出牌消耗金币 = 牌数 × 10）
-            int cost = intent.CardDeckIndices.Length * 10;
-            if (player.Gold < cost)
+            var result = CardTypeDetector.Detect(cards, 6);
+            if (!result.IsValid)
             {
-                Debug.LogWarning($"[ProcessPlayCards] slot={intent.Slot} 金币不足: 需要{cost}, 当前{player.Gold}");
+                RejectPlay(intent.Slot, "提交的牌型无效");
                 return;
             }
 
-            // 执行：扣除金币
-            player.Gold -= cost;
-
-            // 执行：从手牌移除
-            foreach (var cardIndex in intent.CardDeckIndices)
+            if (!IsPlayAllowedByDomain(world, intent.Slot, handCards, cards, result))
             {
-                int idx = handCards.IndexOf(cardIndex);
-                if (idx >= 0) handCards.RemoveAt(idx);
+                RejectPlay(intent.Slot, "手牌被领域封印，所选牌无法反制当前牌型");
+                return;
             }
-            player.HandCount = (byte)handCards.Count;
 
+            if (_battleManager == null || _sceneBaseBuildings == null || intent.Slot >= _sceneBaseBuildings.Length)
+            {
+                RejectPlay(intent.Slot, "战斗场景依赖尚未就绪");
+                return;
+            }
+
+            var sourceBase = _sceneBaseBuildings[intent.Slot];
+            var routeGroup = sourceBase != null
+                ? sourceBase.GetComponent<DoudizhuTower.Gameplay.Battle.RouteGroup>()
+                : null;
+            if (sourceBase == null || routeGroup == null || intent.BaseIndex != intent.Slot
+                || intent.RouteIndex < 0 || intent.RouteIndex >= routeGroup.RouteCount)
+            {
+                RejectPlay(intent.Slot, "基地或行军路线无效");
+                return;
+            }
+
+            routeGroup.SetRouteIndex(intent.RouteIndex);
+            float cost = CardCostCalculator.CalculateTotalCost(cards, result);
+            if (player.Gold < cost)
+            {
+                RejectPlay(intent.Slot, $"金币不足：需要 {cost:F0}，当前 {player.Gold:F0}");
+                return;
+            }
+
+            // 所有校验通过后才提交消耗，避免扣钱、删牌和部署结果分离。
+            player.Gold -= cost;
+            foreach (byte id in intent.CardDeckIndices)
+                handCards.Remove(id);
+            player.HandCount = (byte)handCards.Count;
             SetPlayer(ref world, intent.Slot, player);
 
-            Debug.Log($"[ProcessPlayCards] slot={intent.Slot} 出牌 {intent.CardDeckIndices.Length} 张, 剩余 {player.HandCount} 张, 金币 {player.Gold}");
+            ApplyDomainAfterPlay(ref world, intent.Slot, result);
 
-            // 连接 BattleManager 生成兵种
-            if (_battleManager != null)
+            int deploymentSeed = BuildDeploymentSeed(world.Game.Seed, intent.Slot, intent.CardDeckIndices, Runner != null ? Runner.Tick : 0);
+            DeployCardsWithSeed(cards, result, routeGroup, sourceBase, deploymentSeed);
+            _authorityDeck?.Discard(cards);
+            OnCardsPlayed?.Invoke(intent.Slot, intent.CardDeckIndices);
+            RpcRenderDeployedCards(intent.Slot, intent.CardDeckIndices, intent.RouteIndex, deploymentSeed);
+            SyncPrivateHandToSlot(intent.Slot);
+
+            Debug.Log($"[ProcessPlayCards] slot={intent.Slot} 部署 {result.Type}, cost={cost:F2}, gold={player.Gold:F2}, hand={player.HandCount}");
+        }
+
+        private bool IsPlayAllowedByDomain(WorldState world, int slot, List<byte> handIds, Card[] selectedCards, CardTypeResult playResult)
+        {
+            var game = world.Game;
+            CardTypeResult sealType = default;
+            bool sealedByDomain = game.DomainActive == 1 && game.DomainSlot != slot;
+            bool sealedByCounter = game.CounterActive == 1 && game.DomainSlot == slot;
+            if (sealedByDomain)
+                sealType = new CardTypeResult { Type = (CardType)game.DomainType, MainRank = (CardRank)game.DomainMainRank, Length = game.DomainLength };
+            else if (sealedByCounter)
+                sealType = new CardTypeResult { Type = (CardType)game.CounterType, MainRank = (CardRank)game.CounterMainRank };
+            else
+                return true;
+
+            var deck = new CardDeck(game.Seed);
+            var allCards = new List<Card>(handIds.Count);
+            foreach (byte id in handIds)
             {
-                var cards = new DoudizhuTower.Core.Cards.Card[intent.CardDeckIndices.Length];
-                var deck = new DoudizhuTower.Core.Cards.CardDeck(world.Game.Seed);
-                for (int i = 0; i < intent.CardDeckIndices.Length; i++)
-                    cards[i] = deck.GetCardByIndex(intent.CardDeckIndices[i]);
+                var card = deck.GetCardByIndex(id);
+                if (card.DeckIndex >= 0) allCards.Add(card);
+            }
+            var unsealed = SealRuleEngine.GetUnsealedCards(allCards, sealType);
+            for (int i = 0; i < selectedCards.Length; i++)
+                if (!unsealed.Contains(selectedCards[i])) return false;
+            return playResult.Type == CardType.DoubleKingBomb
+                || playResult.Type == CardType.Bomb && sealType.Type != CardType.Bomb && sealType.Type != CardType.DoubleKingBomb
+                || CardTypeCompare.CanCounter(sealType, playResult);
+        }
 
-                var result = CardTypeDetector.Detect(cards, 6);
+        private void ApplyDomainAfterPlay(ref WorldState world, int slot, CardTypeResult result)
+        {
+            var game = world.Game;
+            int tick = Runner != null ? Runner.Tick : Time.frameCount;
+            int ticksPerSecond = Runner != null ? Mathf.Max(1, Mathf.RoundToInt(1f / Runner.DeltaTime)) : 60;
 
-                // 找到该玩家的基地
-                var baseBuildings = FindBaseBuildingsForSlot(intent.Slot);
-                if (baseBuildings != null && baseBuildings.Count > 0)
+            if (game.DomainActive == 1 && game.CounterPending == 1 && game.DomainSlot != slot)
+            {
+                var domainType = new CardTypeResult { Type = (CardType)game.DomainType, MainRank = (CardRank)game.DomainMainRank, Length = game.DomainLength };
+                if (CardTypeCompare.CanCounter(domainType, result))
                 {
-                    var routeGroup = baseBuildings[0].GetComponent<DoudizhuTower.Gameplay.Battle.RouteGroup>();
-                    _battleManager.DeployCards(cards, result, routeGroup, baseBuildings[0]);
-                    Debug.Log($"[ProcessPlayCards] 已调用 BattleManager.DeployCards: {result.Type}");
+                    game.DomainActive = 0;
+                    game.CounterPending = 0;
+                    game.CounterActive = 1;
+                    game.CounterType = (byte)result.Type;
+                    game.CounterMainRank = (byte)result.MainRank;
+                    game.CounterEndTick = tick + 2 * ticksPerSecond;
+                    game.CounterCooldownEndTick = tick + 45 * ticksPerSecond;
                 }
-                else
-                {
-                    Debug.LogWarning($"[ProcessPlayCards] slot={intent.Slot} 未找到基地");
-                }
+            }
+            else if (game.DomainPending == 1 && game.DomainSlot == slot && result.Type != CardType.Single)
+            {
+                game.DomainPending = 0;
+                game.DomainActive = 1;
+                game.DomainType = (byte)result.Type;
+                game.DomainMainRank = (byte)result.MainRank;
+                game.DomainLength = (byte)Mathf.Clamp(result.Length, 0, byte.MaxValue);
+                game.DomainEndTick = tick + 5 * ticksPerSecond;
+                game.DomainCooldownEndTick = tick + 30 * ticksPerSecond;
+            }
+
+            if (game.DomainActive == 1 && game.DomainSlot != slot
+                && (result.Type == CardType.Bomb || result.Type == CardType.DoubleKingBomb)
+                && CardTypeCompare.CanCounter(new CardTypeResult { Type = (CardType)game.DomainType, MainRank = (CardRank)game.DomainMainRank, Length = game.DomainLength }, result))
+                game.DomainActive = 0;
+
+            if (game.CounterActive == 1 && game.DomainSlot == slot
+                && (result.Type == CardType.Bomb || result.Type == CardType.DoubleKingBomb))
+            {
+                var counterType = new CardTypeResult { Type = (CardType)game.CounterType, MainRank = (CardRank)game.CounterMainRank };
+                if (CardTypeCompare.CanCounter(counterType, result)) game.CounterActive = 0;
+            }
+            world.Game = game;
+        }
+
+        private void RejectPlay(int slot, string reason)
+        {
+            Debug.LogWarning($"[ProcessPlayCards] slot={slot} 出牌被拒绝：{reason}");
+            SyncPrivateHandToSlot(slot);
+        }
+
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        public void RpcRenderDeployedCards(int slot, byte[] cardIndices, int routeIndex, int deploymentSeed)
+        {
+            if (HasStateAuthority || cardIndices == null) return;
+            OnCardsPlayed?.Invoke(slot, cardIndices);
+            if (_battleManager == null || _sceneBaseBuildings == null
+                || slot < 0 || slot >= _sceneBaseBuildings.Length) return;
+
+            var sourceBase = _sceneBaseBuildings[slot];
+            var routeGroup = sourceBase != null
+                ? sourceBase.GetComponent<DoudizhuTower.Gameplay.Battle.RouteGroup>()
+                : null;
+            if (sourceBase == null || routeGroup == null || routeIndex < 0 || routeIndex >= routeGroup.RouteCount)
+                return;
+
+            var deck = new CardDeck(World.Game.Seed);
+            var cards = new Card[cardIndices.Length];
+            for (int i = 0; i < cardIndices.Length; i++)
+                cards[i] = deck.GetCardByIndex(cardIndices[i]);
+            var result = CardTypeDetector.Detect(cards, 6);
+            if (!result.IsValid) return;
+
+            routeGroup.SetRouteIndex(routeIndex);
+            DeployCardsWithSeed(cards, result, routeGroup, sourceBase, deploymentSeed);
+        }
+
+        private int BuildDeploymentSeed(int matchSeed, int slot, byte[] cardIndices, int tick)
+        {
+            unchecked
+            {
+                int seed = matchSeed * 397 ^ slot * 31 ^ tick;
+                for (int i = 0; i < cardIndices.Length; i++)
+                    seed = seed * 31 + cardIndices[i];
+                return seed;
             }
         }
 
-        private List<Component> FindBaseBuildingsForSlot(int slot)
+        private void DeployCardsWithSeed(Card[] cards, CardTypeResult result,
+            DoudizhuTower.Gameplay.Battle.RouteGroup routeGroup, Component sourceBase, int seed)
         {
-            var result = new List<Component>();
-            var allBuildings = FindObjectsByType<CardUnit>(FindObjectsSortMode.None);
-            foreach (var cu in allBuildings)
+            var previousRandomState = Random.state;
+            Random.InitState(seed);
+            try
             {
-                if (cu._isBuilding && cu.OwnerPlayerId == slot)
-                    result.Add(cu);
+                _battleManager.DeployCards(cards, result, routeGroup, sourceBase);
             }
-            return result;
+            finally
+            {
+                Random.state = previousRandomState;
+            }
         }
 
         /// <summary>

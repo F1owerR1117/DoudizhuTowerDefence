@@ -21,7 +21,7 @@ namespace DoudizhuTower.Gameplay.Fusion
         {
             if (gameManager == null) return;
             int slot = gameManager.GetLocalSlot();
-            if (slot < 0) slot = 0;
+            if (slot < 0) return;
             if (gameManager.HasStateAuthority)
                 gameManager.SetPlayCardInput(cardDeckIndices, routeIndex, baseIndex);
             else
@@ -39,7 +39,7 @@ namespace DoudizhuTower.Gameplay.Fusion
         {
             if (gameManager == null) return;
             int slot = gameManager.GetLocalSlot();
-            if (slot < 0) slot = 0;
+            if (slot < 0) return;
             if (gameManager.HasStateAuthority)
                 gameManager.SetDrawInput();
             else
@@ -51,7 +51,7 @@ namespace DoudizhuTower.Gameplay.Fusion
         {
             if (gameManager == null) return;
             int slot = gameManager.GetLocalSlot();
-            if (slot < 0) slot = 0;
+            if (slot < 0) return;
             if (gameManager.HasStateAuthority)
                 gameManager.SetBidInput(slot, bidValue);
             else

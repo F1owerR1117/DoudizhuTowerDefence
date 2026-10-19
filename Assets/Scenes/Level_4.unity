@@ -1416,9 +1416,6 @@ MonoBehaviour:
   _winCondition: 0
   unitFactory: {fileID: 1952426892}
   heroPrefab: {fileID: 5470807353830128555, guid: 269f0ba302221af4ea8caaf9139c3805, type: 3}
-  _selectedHero: 0
-  _heroConfig: {fileID: 0}
-  _useHeroPrefabStats: 1
   _gameStateMachine: {fileID: 842581713}
   _enableTyrantAura: 1
   _tyrantHpMultiplier: 1.5
@@ -1598,7 +1595,7 @@ MonoBehaviour:
   dialogues:
   - lines:
     - speaker: 
-      content: "\u6218\u6597"
+      content: "\u5173\u53614"
       duration: 2
       waitForClick: 0
   announcements: []

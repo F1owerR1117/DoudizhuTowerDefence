@@ -123,8 +123,9 @@ namespace DoudizhuTower.UI.Bidding
 
             if (_mySlot < 0)
             {
-                _mySlot = 0;
-                Debug.LogWarning("[NetworkBidding] 无法确定槽位，使用兜底 slot=0");
+                Debug.LogError("[NetworkBidding] 无法确定本机槽位，禁用叫分输入");
+                SetButtonsInteractable(false);
+                yield break;
             }
 
             // AI 槽位：Host 从 GameSession，Client 从 WorldState
@@ -325,8 +326,8 @@ namespace DoudizhuTower.UI.Bidding
             var gm = FusionGameManager.Instance;
             if (gm != null)
             {
-                int mySlot = gm.IsLocalSlotReady ? gm.GetLocalSlot() : -1;
-                if (mySlot < 0) mySlot = _mySlot >= 0 ? _mySlot : 0;
+                int mySlot = gm.GetLocalSlot();
+                if (mySlot < 0 || mySlot >= 3) return;
 
                 // 轮次校验：不是自己的回合则拒绝
                 if (gm.World.Game.CurrentBidTurn != mySlot) return;

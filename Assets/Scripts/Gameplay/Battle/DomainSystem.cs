@@ -76,6 +76,7 @@ namespace DoudizhuTower.Gameplay.Battle
         private List<CardHand> _allEnemyCardHands = new();
         private List<CardHand> _allFriendlyCardHands = new();
         private bool _isPlayerLandlord;
+        private bool _networkDriven;
 
         #endregion
 
@@ -108,6 +109,37 @@ namespace DoudizhuTower.Gameplay.Battle
             _playerClickedCounter = true;
         }
 
+        public void ApplyNetworkSnapshot(bool domainActive, CardTypeResult domainType, bool domainOwnerIsLandlord,
+            float domainRemaining, bool domainPending, bool counterActive, CardTypeResult counterType,
+            float counterRemaining, bool counterPending)
+        {
+            _networkDriven = true;
+            _isDomainPending = domainPending;
+            _domainPendingByLandlord = domainPending && _isPlayerLandlord;
+            _isCounterPending = counterPending;
+            _counterPendingByFarmer = counterPending;
+
+            if (domainActive)
+            {
+                bool changed = !_isDomainActive || _currentDomainType.Type != domainType.Type
+                    || _currentDomainType.MainRank != domainType.MainRank;
+                if (changed) ActivateDomainInternal(domainType, domainOwnerIsLandlord);
+                _domainTimer = Mathf.Max(0f, domainRemaining);
+            }
+            else if (_isDomainActive)
+                DeactivateDomain();
+
+            if (counterActive)
+            {
+                bool changed = !_isCounterShieldActive || _currentCounterType.Type != counterType.Type
+                    || _currentCounterType.MainRank != counterType.MainRank;
+                if (changed) ActivateCounterShieldInternal(counterType);
+                _counterShieldTimer = Mathf.Max(0f, counterRemaining);
+            }
+            else if (_isCounterShieldActive)
+                DeactivateCounterShield();
+        }
+
         public float DomainDuration
         {
             get => domainDuration;
@@ -138,6 +170,7 @@ namespace DoudizhuTower.Gameplay.Battle
 
         public void Initialize(HandArea playerHand, HandArea enemyHand, bool isPlayerLandlord = true)
         {
+            _networkDriven = false;
             _playerHandArea = playerHand;
             _enemyHandArea = enemyHand;
             _isPlayerLandlord = isPlayerLandlord;
@@ -238,6 +271,11 @@ namespace DoudizhuTower.Gameplay.Battle
 
         private void Update()
         {
+            if (_networkDriven)
+            {
+                UpdateCooldowns();
+                return;
+            }
             UpdateDomainTimer();
             UpdateCounterShieldTimer();
             UpdateCooldowns();
