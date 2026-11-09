@@ -159,7 +159,7 @@ namespace DoudizhuTower.Gameplay.Network
             ShutdownRunner();
             _isConnected = false;
             _isInRoom = false;
-            _isMaster = false;
+            UpdateMasterRole(false);
             _currentRoomName = null;
             LocalPlayer = default;
         }
@@ -211,7 +211,7 @@ namespace DoudizhuTower.Gameplay.Network
                 if (result.Ok)
                 {
                     _isInRoom = true;
-                    _isMaster = true;
+                    UpdateMasterRole(true);
                     _currentRoomName = roomCode;
                     LocalPlayer = _runner.LocalPlayer;
                     Debug.Log($"[Fusion] Host 已创建房间: {roomCode}, PlayerRef={LocalPlayer}, RunnerState={_runner.State}");
@@ -254,7 +254,7 @@ namespace DoudizhuTower.Gameplay.Network
                 if (result.Ok)
                 {
                     _isInRoom = true;
-                    _isMaster = false;
+                    UpdateMasterRole(false);
                     _currentRoomName = roomCode;
                     LocalPlayer = _runner.LocalPlayer;
                     Debug.Log($"[Fusion] Client 已加入房间: {roomCode}, PlayerRef={LocalPlayer}, RunnerState={_runner.State}");
@@ -291,7 +291,7 @@ namespace DoudizhuTower.Gameplay.Network
                 if (result.Ok)
                 {
                     _isInRoom = true;
-                    _isMaster = false;
+                    UpdateMasterRole(false);
                     _currentRoomName = _runner.SessionInfo.Name;
                     LocalPlayer = _runner.LocalPlayer;
                     Debug.Log($"[Fusion] 已随机加入房间: {_currentRoomName}, PlayerRef={LocalPlayer}");
@@ -338,7 +338,7 @@ namespace DoudizhuTower.Gameplay.Network
         {
             ShutdownRunner();
             _isInRoom = false;
-            _isMaster = false;
+            UpdateMasterRole(false);
             _currentRoomName = null;
             LocalPlayer = default;
             // 重置网络模式锁，允许下次切换到单机模式
@@ -383,8 +383,12 @@ namespace DoudizhuTower.Gameplay.Network
         {
             if (_runner == null) return;
             int raw = _runner.LocalPlayer.RawEncoded;
-            if (ready) _readyPlayers.Add(raw);
-            else _readyPlayers.Remove(raw);
+            bool changed = ready ? _readyPlayers.Add(raw) : _readyPlayers.Remove(raw);
+            if (!changed) return;
+
+            OnPlayerReadyChanged?.Invoke();
+            if (AreAllPlayersReady)
+                OnAllPlayersReady?.Invoke();
         }
 
         public bool AreAllPlayersReady
@@ -442,15 +446,30 @@ namespace DoudizhuTower.Gameplay.Network
         public event Action<string> OnPlayerLeft;
         public event Action OnAllPlayersReady;
         public event Action OnPlayerReadyChanged;
-        public event Action<string, object, int> OnCustomEvent;
         public event Action OnMasterSwitched;
+
+        // Retained for the shared service interface. Fusion's current transport uses WorldState
+        // and does not publish arbitrary custom events.
+        private Action<string, object, int> _legacyCustomEventHandlers;
+        public event Action<string, object, int> OnCustomEvent
+        {
+            add => _legacyCustomEventHandlers += value;
+            remove => _legacyCustomEventHandlers -= value;
+        }
+
+        private void UpdateMasterRole(bool isMaster)
+        {
+            if (_isMaster == isMaster) return;
+            _isMaster = isMaster;
+            OnMasterSwitched?.Invoke();
+        }
 
         // ─── INetworkRunnerCallbacks ───
 
         void INetworkRunnerCallbacks.OnPlayerJoined(NetworkRunner runner, PlayerRef player)
         {
             Debug.Log($"[Fusion] 玩家加入: PlayerRef={player}");
-            _isMaster = runner.IsServer;
+            UpdateMasterRole(runner.IsServer);
             OnPlayerJoined?.Invoke($"Player_{player.RawEncoded}");
 
             // 转发到 FusionGameManager（slot 分配）
@@ -461,6 +480,7 @@ namespace DoudizhuTower.Gameplay.Network
         void INetworkRunnerCallbacks.OnPlayerLeft(NetworkRunner runner, PlayerRef player)
         {
             Debug.Log($"[Fusion] 玩家离开: PlayerRef={player}");
+            UpdateMasterRole(runner.IsServer);
             OnPlayerLeft?.Invoke($"Player_{player.RawEncoded}");
 
             // 转发到 FusionGameManager（slot 清理）
@@ -486,7 +506,7 @@ namespace DoudizhuTower.Gameplay.Network
         {
             Debug.Log($"[Fusion] Runner 关闭: {shutdownReason}");
             _isInRoom = false;
-            _isMaster = false;
+            UpdateMasterRole(false);
             LocalPlayer = default;
         }
 

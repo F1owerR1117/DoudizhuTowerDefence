@@ -15,16 +15,7 @@
         "com.unity.nuget.newtonsoft-json": "3.0.2",
         "com.unity.test-framework": "1.1.31"
       },
-      "hash": "aa5fc638d623f56178d50329d9ad8c541a57fe66"
-    },
-    "com.gladekit.mcp-bridge": {
-      "version": "file:D:/liulanqixiazai/com.gladekit.mcp-bridge@274ab84784/com.gladekit.mcp-bridge@274ab84784",
-      "depth": 0,
-      "source": "local",
-      "dependencies": {
-        "com.unity.inputsystem": "1.0.0",
-        "com.unity.ai.navigation": "1.0.0"
-      }
+      "hash": "81542a7e86292b5c4c21b1782c5af23b567f45ce"
     },
     "com.unity.2d.animation": {
       "version": "10.1.1",
@@ -119,15 +110,6 @@
       },
       "url": "https://packages.unity.cn"
     },
-    "com.unity.ai.navigation": {
-      "version": "2.0.0",
-      "depth": 1,
-      "source": "registry",
-      "dependencies": {
-        "com.unity.modules.ai": "1.0.0"
-      },
-      "url": "https://packages.unity.cn"
-    },
     "com.unity.burst": {
       "version": "1.8.13",
       "depth": 3,
@@ -192,15 +174,6 @@
       "source": "registry",
       "dependencies": {
         "com.unity.test-framework": "1.1.9"
-      },
-      "url": "https://packages.unity.cn"
-    },
-    "com.unity.inputsystem": {
-      "version": "1.7.0",
-      "depth": 1,
-      "source": "registry",
-      "dependencies": {
-        "com.unity.modules.uielements": "1.0.0"
       },
       "url": "https://packages.unity.cn"
     },

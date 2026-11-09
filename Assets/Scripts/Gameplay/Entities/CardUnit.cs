@@ -377,7 +377,6 @@ namespace DoudizhuTower.Gameplay.Entities
             _attackTimer = 0f;
             _hitTimes = null;
             _hitCountDealt = 0;
-            _projectileSpawned = false;
             _attackStateTimer = 0f;
             _pendingTauntTarget = null;
             _attackSnapshotTargets = null;
@@ -390,7 +389,6 @@ namespace DoudizhuTower.Gameplay.Entities
         private int _nextHitIndex;
         private float _attackTimer;
         private float[] _hitTimes;
-        private bool _projectileSpawned;
         private float _attackStateTimer;
         private CardUnit _pendingTauntTarget;
         private List<CardUnit> _attackSnapshotTargets;
@@ -527,7 +525,6 @@ namespace DoudizhuTower.Gameplay.Entities
             _nextHitIndex = 0;
             _attackTimer = 0f;
             _hitTimes = null;
-            _projectileSpawned = false;
             _justFinishedAttack = false;
             _pendingTauntTarget = null;
             _attackSnapshotTargets = null;
@@ -852,7 +849,6 @@ namespace DoudizhuTower.Gameplay.Entities
                         _nextHitIndex = 0;
                         _attackTimer = 0f;
                         _hitTimes = null;
-                        _projectileSpawned = false;
                         _pendingTauntTarget = null;
                         _attackSnapshotTargets = null;
                         float interval = Stats.AttackInterval;

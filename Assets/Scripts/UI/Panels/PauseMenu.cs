@@ -2,9 +2,6 @@ using System;
 using DoudizhuTower.Gameplay.Systems;
 using UnityEngine;
 using UnityEngine.UI;
-#if ENABLE_INPUT_SYSTEM
-using UnityEngine.InputSystem;
-#endif
 
 namespace DoudizhuTower.UI.Panels
 {
@@ -98,14 +95,7 @@ namespace DoudizhuTower.UI.Panels
 
         private static bool IsEscapePressed()
         {
-#if ENABLE_INPUT_SYSTEM
-            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
-                return true;
-#endif
-#if !ENABLE_INPUT_SYSTEM
-            if (Input.GetKeyDown(KeyCode.Escape)) return true;
-#endif
-            return false;
+            return Input.GetKeyDown(KeyCode.Escape);
         }
 
         public void TogglePause()

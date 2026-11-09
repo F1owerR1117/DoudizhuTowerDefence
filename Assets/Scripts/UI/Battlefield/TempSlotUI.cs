@@ -20,10 +20,6 @@ namespace DoudizhuTower.UI.Battlefield
         [SerializeField] private GameObject emptyPlaceholder;
         [SerializeField] private CardWidget cardWidget;
 
-        [Header("配置")]
-        [Tooltip("手牌上限（农民 17 / 地主 20）")]
-        [SerializeField] private int handCapacity = 17;
-
         private Card? _heldCard;
         private CardDeck _deck;
         private HandArea _handArea;

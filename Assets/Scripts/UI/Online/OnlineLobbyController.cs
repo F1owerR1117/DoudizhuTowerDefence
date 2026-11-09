@@ -525,8 +525,8 @@ namespace DoudizhuTower.UI.Online
             {
                 // 踢真人（将大厅位置转换为 actor number 后发送）
                 int actorNumber = _net.GetActorNumberAtPosition(slot);
-                if (actorNumber > 0)
-                    _net.SendToPlayer(actorNumber, NetworkProtocol.KICK_PLAYER, 0);
+                if (actorNumber > 0 && _net is LocalNetworkService localService)
+                    localService.SendToPlayer(actorNumber, NetworkProtocol.KICK_PLAYER, 0);
             }
         }
 

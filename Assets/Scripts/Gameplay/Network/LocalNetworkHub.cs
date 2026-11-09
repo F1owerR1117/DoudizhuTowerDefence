@@ -9,24 +9,81 @@ namespace DoudizhuTower.Gameplay.Network
     public static class LocalNetworkHub
     {
         private static readonly List<LocalNetworkService> _players = new();
+        private static readonly Dictionary<int, bool> _readyPlayers = new();
         private static int _nextActorNumber = 1;
+        private static bool _allPlayersReady;
 
         public static int Register(LocalNetworkService player)
         {
             int actorNumber = _nextActorNumber++;
             _players.Add(player);
+            _readyPlayers[actorNumber] = false;
+            _allPlayersReady = false;
             return actorNumber;
         }
 
         public static void Unregister(LocalNetworkService player)
         {
-            _players.Remove(player);
+            if (!_players.Remove(player)) return;
+
+            _readyPlayers.Remove(player.LocalActorNumber);
+            foreach (var remaining in _players)
+                remaining.NotifyPlayerLeft(player.LocalPlayerName);
+
+            for (int i = 0; i < _players.Count; i++)
+                _players[i].SetMasterRole(i == 0);
+
+            _allPlayersReady = false;
         }
 
         public static void Clear()
         {
             _players.Clear();
+            _readyPlayers.Clear();
             _nextActorNumber = 1;
+            _allPlayersReady = false;
+        }
+
+        public static void NotifyPlayerJoined(LocalNetworkService joiningPlayer)
+        {
+            foreach (var player in _players)
+            {
+                if (player == joiningPlayer) continue;
+                player.NotifyPlayerJoined(joiningPlayer.PlayerName);
+                joiningPlayer.NotifyPlayerJoined(player.PlayerName);
+            }
+        }
+
+        public static void SetPlayerReady(LocalNetworkService player, bool ready)
+        {
+            if (!_readyPlayers.TryGetValue(player.LocalActorNumber, out bool previous) || previous == ready)
+                return;
+
+            _readyPlayers[player.LocalActorNumber] = ready;
+            foreach (var current in _players)
+                current.NotifyPlayerReadyChanged();
+
+            bool allReady = AreAllPlayersReady;
+            if (allReady && !_allPlayersReady)
+            {
+                foreach (var current in _players)
+                    current.NotifyAllPlayersReady();
+            }
+            _allPlayersReady = allReady;
+        }
+
+        public static bool AreAllPlayersReady
+        {
+            get
+            {
+                if (_players.Count == 0) return false;
+                foreach (var player in _players)
+                {
+                    if (!_readyPlayers.TryGetValue(player.LocalActorNumber, out bool ready) || !ready)
+                        return false;
+                }
+                return true;
+            }
         }
 
         public static int PlayerCount => _players.Count;

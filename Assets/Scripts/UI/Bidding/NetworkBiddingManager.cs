@@ -57,7 +57,6 @@ namespace DoudizhuTower.UI.Bidding
         private int _highestBidder = -1;
         private int _highestBid;
         private bool _biddingEnded;
-        private bool _initialized;
         private bool _shownResult;
         private System.Collections.Generic.HashSet<int> _aiSlots = new();
 
@@ -148,7 +147,6 @@ namespace DoudizhuTower.UI.Bidding
 
             AssignSideSlots();
             SetPlayerLabels();
-            _initialized = true;
 
             UpdateBidButtons();
             UpdateTurnDisplay();
@@ -178,7 +176,6 @@ namespace DoudizhuTower.UI.Bidding
         private void ResetRuntime()
         {
             _biddingEnded = false;
-            _initialized = false;
         }
 
         private void OnDestroy()

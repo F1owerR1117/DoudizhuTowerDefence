@@ -167,7 +167,6 @@ namespace DoudizhuTower.Gameplay.Entities
         private CardUnit _owner;
         private UnitAudio _unitAudio;
         private UnitVFX _unitVFX;
-        private float _chargeTimer;
         private bool _isCharged;
         private float _originalSpeed;
         private float _lastAttackTime = -999f;
@@ -584,7 +583,6 @@ namespace DoudizhuTower.Gameplay.Entities
         private void EnterChargeState()
         {
             _isCharged = true;
-            _chargeTimer = 0f;
             ApplyChargeSpeed(true);
             _owner.SetAnimBool("Charge", true);
             if (chargeHeightOverride != 0)

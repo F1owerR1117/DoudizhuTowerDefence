@@ -7736,7 +7736,7 @@ namespace Fusion.Editor {
     public static class AssetDatabase {
       public delegate bool TryGetAssetFolderInfoDelegate(string path, out bool rootFolder, out bool immutable);
       public static readonly TryGetAssetFolderInfoDelegate TryGetAssetFolderInfo = typeof(UnityEditor.AssetDatabase).CreateMethodDelegate<TryGetAssetFolderInfoDelegate>(
-#if UNITY_6000_0_OR_NEWER
+#if UNITY_2023_2_OR_NEWER
         nameof(TryGetAssetFolderInfo)
 #else
         "GetAssetFolderInfo"

@@ -15,14 +15,11 @@ namespace DoudizhuTower.Gameplay.Network
         [Networked]
         public int TestValue { get; set; }
 
-        private bool _authorityLogged = false;
-
         public override void Spawned()
         {
             // 验证 ② Authority 分配
             string role = Object.HasStateAuthority ? "HOST" : "CLIENT";
             Debug.Log($"[FusionTest] ===== SPAWNED ===== Role={role}, HasStateAuthority={Object.HasStateAuthority}");
-            _authorityLogged = true;
         }
 
         public override void FixedUpdateNetwork()

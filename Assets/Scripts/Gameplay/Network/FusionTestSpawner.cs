@@ -18,7 +18,7 @@ namespace DoudizhuTower.Gameplay.Network
         {
             if (_spawned || testObjectPrefab == null) return;
 
-            var runner = FindObjectOfType<NetworkRunner>();
+            var runner = FindAnyObjectByType<NetworkRunner>();
             if (runner == null) return;
 
             // 只在 Server/Host 端 Spawn

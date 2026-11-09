@@ -56,7 +56,6 @@ namespace DoudizhuTower.Gameplay.Fusion
         // =========================
         private int _stateStartTick;
         private int _biddingDurationTicks = 3000; // 30s × 100 tick/s
-        private int _turnDurationTicks = 600;     // 6s × 100 tick/s
 
         /// <summary>当前阶段起始 Tick（供 UI 层计算剩余时间）</summary>
         public int StateStartTick => _stateStartTick;

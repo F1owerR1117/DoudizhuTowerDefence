@@ -128,7 +128,22 @@ namespace DoudizhuTower.Gameplay.Systems
 
         private GameObject GetFromPool(GameObject prefab, Vector3 position, Transform parent)
         {
-            if (_pools.TryGetValue(prefab, out var pool) && pool.Count > 0)
+            if (!_pools.TryGetValue(prefab, out var pool))
+            {
+                pool = new Queue<GameObject>();
+                _pools[prefab] = pool;
+
+                int warmCount = Mathf.Clamp(poolInitialSize, 0, Mathf.Max(0, poolMaxSize));
+                for (int i = 0; i < warmCount; i++)
+                {
+                    var prewarmed = Instantiate(prefab, transform);
+                    prewarmed.name = prefab.name;
+                    prewarmed.SetActive(false);
+                    pool.Enqueue(prewarmed);
+                }
+            }
+
+            if (pool.Count > 0)
             {
                 var vfx = pool.Dequeue();
                 if (vfx != null)

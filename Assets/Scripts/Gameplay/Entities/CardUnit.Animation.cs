@@ -332,7 +332,6 @@ namespace DoudizhuTower.Gameplay.Entities
             _nextHitIndex = 0;
             _attackTimer = 0f;
             _hitTimes = null;
-            _projectileSpawned = false;
             _justFinishedAttack = false;
             _pendingTauntTarget = null;
             _attackSnapshotTargets = null;

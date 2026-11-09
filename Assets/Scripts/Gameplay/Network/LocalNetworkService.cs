@@ -28,6 +28,7 @@ namespace DoudizhuTower.Gameplay.Network
             _isMaster = (_actorNumber == 1); // 第一个注册的为 Master
             _isConnected = true;
             _isInRoom = true;
+            LocalNetworkHub.NotifyPlayerJoined(this);
             Debug.Log($"[LocalNet] {_playerName} 初始化: ActorNumber={_actorNumber}, IsMaster={_isMaster}");
         }
 
@@ -55,7 +56,10 @@ namespace DoudizhuTower.Gameplay.Network
 
         public void Disconnect()
         {
+            bool wasConnected = _isConnected;
             Shutdown();
+            if (wasConnected)
+                OnConnectionLost?.Invoke();
         }
 
         public bool IsConnected => _isConnected;
@@ -68,6 +72,11 @@ namespace DoudizhuTower.Gameplay.Network
 
         public void JoinRoom(string roomCode)
         {
+            if (string.IsNullOrWhiteSpace(roomCode))
+            {
+                OnRoomJoinError?.Invoke("房间号不能为空");
+                return;
+            }
             _isInRoom = true;
             OnRoomJoinSuccess?.Invoke(roomCode);
         }
@@ -97,13 +106,14 @@ namespace DoudizhuTower.Gameplay.Network
 
         public string[] GetPlayerNames() => LocalNetworkHub.GetAllPlayerNames();
 
-        public void SetPlayerReady(bool ready) { }
+        public void SetPlayerReady(bool ready) => LocalNetworkHub.SetPlayerReady(this, ready);
 
-        public bool AreAllPlayersReady => true;
+        public bool AreAllPlayersReady => LocalNetworkHub.AreAllPlayersReady;
 
         [System.Obsolete] public void SendToAll(string key, object value) { }
         [System.Obsolete] public void SendToMaster(string key, object value) { }
-        [System.Obsolete] public void SendToPlayer(int actorNumber, string key, object value) { }
+        public void SendToPlayer(int actorNumber, string key, object value) =>
+            LocalNetworkHub.SendToPlayer(actorNumber, key, value, _actorNumber);
 
         public void SetRoomProperty(string key, object value) { }
         public object GetRoomProperty(string key) => null;
@@ -136,5 +146,20 @@ namespace DoudizhuTower.Gameplay.Network
         public event Action OnPlayerReadyChanged;
         public event Action<string, object, int> OnCustomEvent;
         public event Action OnMasterSwitched;
+
+        internal string PlayerName => _playerName;
+
+        internal void NotifyPlayerJoined(string playerName) => OnPlayerJoined?.Invoke(playerName);
+        internal void NotifyPlayerLeft(string playerName) => OnPlayerLeft?.Invoke(playerName);
+        internal void NotifyPlayerReadyChanged() => OnPlayerReadyChanged?.Invoke();
+        internal void NotifyAllPlayersReady() => OnAllPlayersReady?.Invoke();
+        internal void NotifyMasterSwitched() => OnMasterSwitched?.Invoke();
+
+        internal void SetMasterRole(bool isMaster)
+        {
+            if (_isMaster == isMaster) return;
+            _isMaster = isMaster;
+            OnMasterSwitched?.Invoke();
+        }
     }
 }

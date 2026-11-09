@@ -247,7 +247,6 @@ namespace DoudizhuTower.Gameplay.Entities
             _hitTimelineDone = false;
             _nextHitIndex = 0;
             _attackTimer = 0f;
-            _projectileSpawned = false;
             _attackStateTimer = 0f;
 
             // 创建攻击 Timeline（时间驱动攻击帧）
@@ -635,7 +634,6 @@ namespace DoudizhuTower.Gameplay.Entities
             _nextHitIndex = 0;
             _attackTimer = 0f;
             _hitTimes = null;
-            _projectileSpawned = false;
             _justFinishedAttack = false;
             _pendingTauntTarget = null;
             _attackSnapshotTargets = null;

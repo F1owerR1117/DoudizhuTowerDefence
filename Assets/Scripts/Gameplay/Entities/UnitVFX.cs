@@ -125,8 +125,9 @@ namespace DoudizhuTower.Gameplay.Entities
         /// </summary>
         /// <param name="target">冲锋目标</param>
         /// <param name="duration">持续时间</param>
-        public void PlayCharge(Transform target, float duration = 0.5f)
+        public void PlayCharge(Transform target, float duration = -1f)
         {
+            if (duration < 0f) duration = chargeDuration;
             var vfx = VFXManager.Instance?.SpawnVFX(chargeVFX, target.position, target, 0f, false);
             if (vfx != null)
             {
@@ -204,8 +205,9 @@ namespace DoudizhuTower.Gameplay.Entities
         /// <param name="position">燃烧位置</param>
         /// <param name="radius">火海半径（用于缩放特效）</param>
         /// <param name="duration">持续时间</param>
-        public void PlayBurn(Vector3 position, float radius = 2f, float duration = 3f)
+        public void PlayBurn(Vector3 position, float radius = 2f, float duration = -1f)
         {
+            if (duration < 0f) duration = burnDuration;
             var vfx = VFXManager.Instance?.SpawnVFX(burnVFX, position, null, duration);
             if (vfx != null)
             {
