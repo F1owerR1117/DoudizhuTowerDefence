@@ -113,6 +113,7 @@ MonoBehaviour:
   deathExplosionClip: {fileID: 0}
   burnClip: {fileID: 0}
   summonClip: {fileID: 0}
+  pounceClip: {fileID: 0}
   dashClip: {fileID: 0}
   bossSkill1Clip: {fileID: 0}
   bossSkill2Clip: {fileID: 0}
@@ -554,6 +555,8 @@ MonoBehaviour:
   chargeSpeedMultiplier: 1.3
   chargeHeightOverride: 0
   chargeBlockableByHeight: 0
+  chargeAttackableHeight: 0
+  auraOnlyAffectAttackable: 0
   enableKingAura: 0
   kingInterval: 5
   kingRadius: 44
@@ -576,6 +579,7 @@ MonoBehaviour:
   stunDuration: 2
   enableBurstAttack: 0
   burstHitCount: 3
+  burstAttackIntervalMult: 1
   burstCooldown: 2
   enableTear: 1
   tearDamagePerStack: 0.25
@@ -583,14 +587,27 @@ MonoBehaviour:
   tearDuration: 4
   enableShockwave: 0
   shockwaveRadius: 9999
+  shockwavePushDistance: 1
   shockwaveDamagePct: 0
   enableBurnOnDeath: 0
   burnRadius: 0.5
   burnDamagePct: 0.2
   burnDuration: 3
   enableSplash: 1
+  splashMode: 1
   splashRadius: 70
   splashDamagePct: 1
+  splashFacingAngle: 66.5
+  splashFacingRotation: -39.38
+  splashHitsPrimary: 0
+  enableExecute: 0
+  executeThreshold: 50
+  enableHeal: 0
+  healAmount: 30
+  healInterval: 1.5
+  healRadius: 0
+  healTargetHeight: -1
+  healLowestHpFirst: 1
   enableCavalryChase: 0
   cavalryChaseRangeThreshold: 8
   enableSummoner: 0
@@ -598,6 +615,13 @@ MonoBehaviour:
   summonInterval: 8
   maxSummons: 5
   summonOnKill: 1
+  enablePounce: 0
+  pounceRange: 8
+  pounceDuration: 0.35
+  pounceArcHeight: 1.5
+  pounceInvulnerable: 0
+  pounceInterruptible: 1
+  pounceBlockOneShotAnim: 1
 --- !u!114 &9100878102668243345
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -612,6 +636,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   splashExplosionVFX: {fileID: 0}
   splashDuration: 0.75
+  healVFX: {fileID: 0}
+  healDuration: 0.6
   chargeVFX: {fileID: 0}
   chargeDuration: 0.5
   shockwaveVFX: {fileID: 0}

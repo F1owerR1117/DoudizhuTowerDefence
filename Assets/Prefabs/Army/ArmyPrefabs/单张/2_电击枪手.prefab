@@ -282,6 +282,7 @@ MonoBehaviour:
   deathExplosionClip: {fileID: 0}
   burnClip: {fileID: 0}
   summonClip: {fileID: 0}
+  pounceClip: {fileID: 0}
   dashClip: {fileID: 0}
   bossSkill1Clip: {fileID: 0}
   bossSkill2Clip: {fileID: 0}
@@ -502,7 +503,7 @@ GameObject:
   - component: {fileID: 2482865959666375723}
   - component: {fileID: 520416851070966093}
   m_Layer: 0
-  m_Name: 2_Wizard
+  m_Name: "2_\u7535\u51FB\u67AA\u624B"
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -606,6 +607,7 @@ MonoBehaviour:
   _hitCount: 1
   _maxTargets: 3
   _multiTargetRadius: 0
+  _unitTypeId: 
 --- !u!114 &2482865959666375723
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -630,6 +632,8 @@ MonoBehaviour:
   chargeSpeedMultiplier: 1.3
   chargeHeightOverride: 0
   chargeBlockableByHeight: 0
+  chargeAttackableHeight: 0
+  auraOnlyAffectAttackable: 0
   enableKingAura: 0
   kingInterval: 5
   kingRadius: 3
@@ -650,8 +654,29 @@ MonoBehaviour:
   slowDuration: 2
   enableStunOnHit: 0
   stunDuration: 1
+  stunEveryNHits: 1
+  enableBleed: 0
+  bleedDamagePctPerSec: 0.3
+  bleedDuration: 3
+  bleedMaxStacks: 3
+  enableIgnite: 0
+  igniteDamagePctPerSec: 0.2
+  igniteDuration: 4
+  igniteMaxStacks: 5
+  igniteSpreadRadius: 3
+  igniteSpreadDwell: 1.5
+  enableImpair: 0
+  impairSlowPercent: 0.3
+  impairDuration: 2
+  enableHeavyStrike: 0
+  heavyStrikePushDistance: 1.5
+  enableOverheat: 0
+  overheatAtkPctPerSec: 0.1
+  overheatMaxBonusPct: 1
+  overheatRetainDuration: 3
   enableBurstAttack: 0
   burstHitCount: 3
+  burstAttackIntervalMult: 1
   burstCooldown: 2
   enableTear: 0
   tearDamagePerStack: 0.05
@@ -659,21 +684,48 @@ MonoBehaviour:
   tearDuration: 4
   enableShockwave: 0
   shockwaveRadius: 2
+  shockwavePushDistance: 1
   shockwaveDamagePct: 0.3
   enableBurnOnDeath: 0
   burnRadius: 2
   burnDamagePct: 0.2
   burnDuration: 3
   enableSplash: 1
+  splashMode: 0
   splashRadius: 5
   splashDamagePct: 1
+  splashFacingAngle: 180
+  splashFacingRotation: 0
+  splashHitsPrimary: 0
+  enableExecute: 0
+  executeThreshold: 50
+  enableHeal: 0
+  healAmount: 30
+  healInterval: 1.5
+  healRadius: 0
+  healTargetHeight: -1
+  healLowestHpFirst: 1
   enableCavalryChase: 0
   cavalryChaseRangeThreshold: 8
   enableSummoner: 0
   summonPrefab: {fileID: 0}
   summonInterval: 8
+  summonCountPerCast: 1
   maxSummons: 5
   summonOnKill: 1
+  enableLeader: 0
+  leaderRadius: 4
+  leaderAtkPct: 0.2
+  leaderAttackSpeedPct: 0.2
+  leaderMoveSpeedPct: 0.15
+  leaderAffectSelf: 0
+  enablePounce: 0
+  pounceRange: 8
+  pounceDuration: 0.35
+  pounceArcHeight: 1.5
+  pounceInvulnerable: 0
+  pounceInterruptible: 1
+  pounceBlockOneShotAnim: 1
 --- !u!114 &520416851070966093
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -688,6 +740,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   splashExplosionVFX: {fileID: 810261943358466711, guid: 119c71630756bad4e9268d03ecc87cdb, type: 3}
   splashDuration: 0.2
+  healVFX: {fileID: 0}
+  healDuration: 0.6
   chargeVFX: {fileID: 0}
   chargeDuration: 0.5
   shockwaveVFX: {fileID: 0}
@@ -710,6 +764,26 @@ MonoBehaviour:
   tauntAuraVFX: {fileID: 0}
   tearVFX: {fileID: 0}
   tearDuration: 0.75
+  bleedVFX: {fileID: 0}
+  bleedDuration: 0.75
+  igniteVFX: {fileID: 0}
+  igniteDuration: 0.75
+  impairVFX: {fileID: 0}
+  impairDuration: 0.6
+  heavyStrikeVFX: {fileID: 0}
+  heavyStrikeDuration: 0.5
+  overheatVFX: {fileID: 0}
+  slowAuraVFX: {fileID: 0}
+  swarmAuraVFX: {fileID: 0}
+  leaderAuraVFX: {fileID: 0}
+  burstVFX: {fileID: 0}
+  burstDuration: 0.5
+  executeVFX: {fileID: 0}
+  executeDuration: 0.75
+  pounceVFX: {fileID: 0}
+  pounceDuration: 0.5
+  sniperMarkVFX: {fileID: 0}
+  sniperMarkDuration: 1
 --- !u!1 &8842921333105226152
 GameObject:
   m_ObjectHideFlags: 0
@@ -769,6 +843,19 @@ MonoBehaviour:
   summonClip: {fileID: 0}
   tauntClip: {fileID: 0}
   shieldWallClip: {fileID: 0}
+  bleedClip: {fileID: 0}
+  igniteClip: {fileID: 0}
+  impairClip: {fileID: 0}
+  heavyStrikeClip: {fileID: 0}
+  overheatClip: {fileID: 0}
+  shieldAbsorbClip: {fileID: 0}
+  slowAuraClip: {fileID: 0}
+  leaderClip: {fileID: 0}
+  burstClip: {fileID: 0}
+  executeClip: {fileID: 0}
+  pounceClip: {fileID: 0}
+  tearClip: {fileID: 0}
+  healClip: {fileID: 0}
   volumeScale: 1
   hitVolumeScale: 0.5
   maxPerClipConcurrent: 3
