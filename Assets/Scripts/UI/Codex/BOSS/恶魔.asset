@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e427239fb1e427f44b234fc4c60a6aff, type: 3}
+  m_Name: "\u6076\u9B54"
+  m_EditorClassIdentifier: 
+  Id: boss-demon
+  DisplayName: "\u6076\u9B54"
+  Category: 2
+  Icon: {fileID: 21300000, guid: 1878033ebd6af09418ac6592172e82a9, type: 3}
+  Description: "\u7A7A\u4E2D BOSS\uFF0C\u4E94\u6B21\u8FDE\u51FB\u914D\u5408\u6E85\u5C04\u8986\u76D6\u5927\u7247\u533A\u57DF\uFF0C\u51CF\u901F\u5149\u73AF\u8BA9\u5730\u9762\u90E8\u961F\u96BE\u4EE5\u63A5\u8FD1\u3002"
+  ExtraInfo: "HP 7500\u3000\u653B\u51FB 50 \xD75 / 1 \u79D2\u3000\u5C04\u7A0B 75\u3000\u79FB\u901F
+    30\u3000\u9AD8\u5EA6 \u7A7A\u4E2D\n\u88AB\u52A8\uFF1A\u51CF\u901F\u5149\u73AF\uFF08\u534A\u5F84
+    200\uFF0C\u51CF\u901F 68.8%\uFF0C1s\uFF09\n\u3000\u6495\u88C2\uFF08\u6BCF\u5C42
+    +25% \u4F24\u5BB3\uFF0C\u6700\u591A 4 \u5C42\uFF0C4s\uFF09\n\u3000\u5706\u5F62\u6E85\u5C04\uFF08\u534A\u5F84
+    70\uFF0C100% \u4F24\u5BB3\uFF09\n\u6280\u80FD\uFF1A\u6124\u6012\uFF08HP 50%\uFF0C\u51B7\u5374
+    5s\uFF1A\u8303\u56F4\u4F24\u5BB3 2\uFF0C\u534A\u5F84 100\uFF09"
+  Keywords:
+  - BOSS
+  - "\u98DE\u884C"
+  - "\u6E85\u5C04"
+  - "\u51CF\u901F"
+  RelatedEntries:
+  - passive-slow-aura
+  - passive-tear

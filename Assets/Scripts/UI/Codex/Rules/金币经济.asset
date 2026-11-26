@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e427239fb1e427f44b234fc4c60a6aff, type: 3}
+  m_Name: "\u91D1\u5E01\u7ECF\u6D4E"
+  m_EditorClassIdentifier: 
+  Id: rule-economy
+  DisplayName: "\u91D1\u5E01\u7ECF\u6D4E"
+  Category: 5
+  Icon: {fileID: 21300000, guid: 981190a9e6b8710428bf85ae6113fcd1, type: 3}
+  Description: "\u90E8\u7F72\u5355\u4F4D\u4E0E\u5347\u7EA7\u5EFA\u7B51\u90FD\u8981\u82B1\u91D1\u5E01\u3002\u7ECF\u6D4E\u4E00\u65E6\u65AD\u6863\uFF0C\u624B\u91CC\u518D\u597D\u7684\u724C\u4E5F\u6253\u4E0D\u51FA\u53BB\uFF0C\u6240\u4EE5\u524D\u671F\u94FA\u7ECF\u6D4E\u5F80\u5F80\u6BD4\u591A\u6253\u4E00\u624B\u66F4\u5212\u7B97\u3002"
+  ExtraInfo: "\u91D1\u5E01\u6765\u6E90\uFF1A\u6218\u6597\u4EA7\u51FA\u3000\u7528\u9014\uFF1A\u90E8\u7F72
+    / \u5347\u7EA7"
+  Keywords:
+  - "\u91D1\u5E01"
+  - "\u7ECF\u6D4E"
+  - "\u4EA7\u51FA"
+  RelatedEntries:
+  - rule-play-limit

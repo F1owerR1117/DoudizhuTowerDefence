@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e427239fb1e427f44b234fc4c60a6aff, type: 3}
+  m_Name: "\u91CD\u51FB"
+  m_EditorClassIdentifier: 
+  Id: passive-heavy-strike
+  DisplayName: "\u91CD\u51FB"
+  Category: 4
+  Icon: {fileID: 21300000, guid: 8631ed91109c7a74098723dc3fc02a57, type: 3}
+  Description: "\u653B\u51FB\u4F1A\u628A\u547D\u4E2D\u7684\u654C\u4EBA\u51FB\u9000\uFF0C\u5E76\u6253\u65AD\u5176\u52A8\u4F5C\u3002"
+  ExtraInfo: "\xB7 \u51FB\u9000\u4E3A\u5E73\u6ED1\u4F4D\u79FB\n\xB7 \u4F1A\u6253\u65AD\u76EE\u6807\u6B63\u5728\u8FDB\u884C\u7684\u653B\u51FB"
+  Keywords:
+  - "\u91CD\u51FB"
+  - "\u51FB\u9000"
+  - "\u6253\u65AD"
+  RelatedEntries:
+  - passive-king-aura
+  - passive-impair

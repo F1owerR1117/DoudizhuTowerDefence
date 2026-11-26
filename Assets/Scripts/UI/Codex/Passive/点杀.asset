@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e427239fb1e427f44b234fc4c60a6aff, type: 3}
+  m_Name: "\u70B9\u6740"
+  m_EditorClassIdentifier: 
+  Id: passive-sniper
+  DisplayName: "\u70B9\u6740"
+  Category: 4
+  Icon: {fileID: 21300000, guid: 8631ed91109c7a74098723dc3fc02a57, type: 3}
+  Description: "\u53EF\u4EE5\u989D\u5916\u653B\u51FB\u5230\u81EA\u8EAB\u653B\u51FB\u8303\u56F4\u5916\u3001\u751F\u547D\u503C\u4F4E\u4E8E\u4E00\u5B9A\u6BD4\u4F8B\u7684\u654C\u4EBA\u3002"
+  ExtraInfo: "\xB7 \u8303\u56F4\u5185\u7684\u654C\u4EBA\u59CB\u7EC8\u4F18\u5148\u9009\u62E9\u8840\u91CF\u6700\u4F4E\u7684\n\xB7
+    \u8D8A\u754C\u53EA\u80FD\u9501\u5B9A\u6B8B\u8840\u76EE\u6807\n\xB7 \u6CA1\u6709\u5408\u9002\u76EE\u6807\u65F6\u56DE\u9000\u666E\u901A\u7D22\u654C"
+  Keywords:
+  - "\u70B9\u6740"
+  - "\u6B8B\u8840"
+  - "\u9501\u5B9A"
+  RelatedEntries:
+  - passive-cavalry
+  - passive-splash

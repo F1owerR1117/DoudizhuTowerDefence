@@ -55,6 +55,14 @@ namespace DoudizhuTower.Gameplay.Entities
         public void TriggerAnim(string name)
         {
             if (_isDying && name != "Death" && name != "DeathExplosion" && name != "Burn") return;
+
+            // 飞扑期间屏蔽其他一次性动画（死亡与飞扑本身除外），避免"边飞边播眩晕/震波"
+            if (IsPouncing && name != "Death" && name != "Pounce")
+            {
+                var pounceCtl = Passives;
+                if (pounceCtl != null && pounceCtl.enablePounce && pounceCtl.pounceBlockOneShotAnim) return;
+            }
+
             if (_simpleAnimator != null)
                 _simpleAnimator.Trigger(name);
             else if (_animator != null && _animator.isActiveAndEnabled)
@@ -174,7 +182,9 @@ namespace DoudizhuTower.Gameplay.Entities
 
         private void OnDrawGizmos()
         {
-            // 碰撞箱轮廓（青色）+ 攻击范围圆（红色）
+            if (!GizmoDraw.ShouldDraw(gameObject)) return;
+
+            // 碰撞箱轮廓（青色）+ 攻击范围（红色）
             // 统一使用 bounds（世界空间），与实际碰撞检测一致
             Collider2D col = _collider != null ? _collider : GetComponentInChildren<Collider2D>();
             if (col == null) return;
@@ -187,49 +197,8 @@ namespace DoudizhuTower.Gameplay.Entities
             Gizmos.color = new Color(0f, 1f, 1f, 0.3f);
             Gizmos.DrawWireCube(center, worldSize);
 
-            // 攻击范围 = 碰撞箱形状向外膨胀 Range 距离（与 GetUnitEdgeDistance 边缘判定一致）
-            Gizmos.color = new Color(1f, 0.2f, 0.2f, 0.5f);
-            if (col is BoxCollider2D)
-            {
-                // 画膨胀矩形：4 条边 + 4 个角的圆弧
-                float hx = worldSize.x / 2f + _range;
-                float hy = worldSize.y / 2f + _range;
-                Vector3 tl = center + new Vector3(-hx, hy, 0);
-                Vector3 tr = center + new Vector3(hx, hy, 0);
-                Vector3 bl = center + new Vector3(-hx, -hy, 0);
-                Vector3 br = center + new Vector3(hx, -hy, 0);
-                Gizmos.DrawLine(tl, tr);
-                Gizmos.DrawLine(tr, br);
-                Gizmos.DrawLine(br, bl);
-                Gizmos.DrawLine(bl, tl);
-                // 4 个角的圆弧（每角 3 段近似）
-                float r = _range;
-                DrawArc(center + new Vector3(worldSize.x / 2f, worldSize.y / 2f, 0), r, 0f, 90f);
-                DrawArc(center + new Vector3(-worldSize.x / 2f, worldSize.y / 2f, 0), r, 90f, 180f);
-                DrawArc(center + new Vector3(-worldSize.x / 2f, -worldSize.y / 2f, 0), r, 180f, 270f);
-                DrawArc(center + new Vector3(worldSize.x / 2f, -worldSize.y / 2f, 0), r, 270f, 360f);
-            }
-            else
-            {
-                float colExtent = Mathf.Max(worldSize.x, worldSize.y) / 2f;
-                Gizmos.DrawWireSphere(center, _range + colExtent);
-            }
-        }
-
-        /// <summary>在 Gizmos 中画圆弧（角度范围 startDeg → endDeg，6 段近似）</summary>
-        private static void DrawArc(Vector3 center, float radius, float startDeg, float endDeg)
-        {
-            const int segments = 6;
-            float step = (endDeg - startDeg) / segments;
-            Vector3 prev = center + new Vector3(
-                Mathf.Cos(startDeg * Mathf.Deg2Rad), Mathf.Sin(startDeg * Mathf.Deg2Rad), 0) * radius;
-            for (int i = 1; i <= segments; i++)
-            {
-                float angle = (startDeg + step * i) * Mathf.Deg2Rad;
-                Vector3 next = center + new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0) * radius;
-                Gizmos.DrawLine(prev, next);
-                prev = next;
-            }
+            // 攻击范围 = 碰撞体外形向外膨胀 Range（与 GetUnitEdgeDistance 边缘判定一致）
+            GizmoDraw.ExpandedBounds(center, worldSize, RangeForPreview, new Color(1f, 0.2f, 0.2f, 0.5f));
         }
 
         /// <summary>
@@ -281,8 +250,7 @@ namespace DoudizhuTower.Gameplay.Entities
             StunTimer = 0f;
             DamageReduction = 0f;
             ShareRedirected = false;
-            TearStacks = 0;
-            TearTimer = 0f;
+            ClearDoT();
             SlowRestoreTimer = 0f;
             _needsFirstFrameSearch = true;
             SimulatesCombat = SimulatesCombatDefault;
@@ -324,6 +292,12 @@ namespace DoudizhuTower.Gameplay.Entities
             _enemyBuildings = null;
             _isDying = false;
             ClearHeightOverride();
+            ClearAttackableHeightOverride();
+            IsChanneling = false;
+            IsPouncing = false;
+            if (Passives != null) Passives.AbortPounce();
+            if (Passives != null) Passives.ClearLeaderBuffs();
+            ClearDoT();
             _isAttacking = false;
             _attackTarget = null;
             _hitCountDealt = 0;
@@ -339,8 +313,7 @@ namespace DoudizhuTower.Gameplay.Entities
             SetAnimSpeed(1f);
             _pathDistance = 0f;
             FollowPath = null;
-            TearStacks = 0;
-            TearTimer = 0f;
+            ClearDoT();
             SlowRestoreTimer = 0f;
             _bonusDamage = 0f;
             OriginalMoveSpeed = 0f;
@@ -375,6 +348,8 @@ namespace DoudizhuTower.Gameplay.Entities
             OnAttackEvent = null;
             OnTakeDamageEvent = null;
             OnDamageCalculated = null;
+            OnHealed = null;
+            OnExecuted = null;
             OnKillEvent = null;
             OnSummonFrame = null;
             OnDestroyed = null;

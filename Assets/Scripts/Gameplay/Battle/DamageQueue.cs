@@ -14,6 +14,8 @@ namespace DoudizhuTower.Gameplay.Battle
         {
             public CardUnit Target;
             public float FinalDamage;
+            /// <summary>伤害来源（用于处决等按来源判定的被动）；可为空</summary>
+            public CardUnit Source;
         }
 
         private static readonly List<DamageEntry> _queue = new();
@@ -30,11 +32,20 @@ namespace DoudizhuTower.Gameplay.Battle
         /// </summary>
         public static void Enqueue(CardUnit target, float finalDamage)
         {
+            Enqueue(target, finalDamage, null);
+        }
+
+        /// <summary>
+        /// 入队一条伤害，并记录伤害来源（供处决等按来源判定的被动使用）。
+        /// </summary>
+        public static void Enqueue(CardUnit target, float finalDamage, CardUnit source)
+        {
             if (target == null || !target.IsAlive) return;
             _queue.Add(new DamageEntry
             {
                 Target = target,
-                FinalDamage = finalDamage
+                FinalDamage = finalDamage,
+                Source = source
             });
         }
 
@@ -60,7 +71,7 @@ namespace DoudizhuTower.Gameplay.Battle
                 foreach (var entry in batch)
                 {
                     if (entry.Target == null || !entry.Target.IsAlive) continue;
-                    entry.Target.ApplyDamage(entry.FinalDamage);
+                    entry.Target.ApplyDamage(entry.FinalDamage, entry.Source);
                 }
             }
 

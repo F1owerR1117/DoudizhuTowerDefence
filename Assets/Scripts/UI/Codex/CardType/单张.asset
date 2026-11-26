@@ -12,12 +12,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e427239fb1e427f44b234fc4c60a6aff, type: 3}
   m_Name: "\u5355\u5F20"
   m_EditorClassIdentifier: 
-  Id: 
+  Id: cardtype-single
   DisplayName: "\u5355\u5F20"
   Category: 1
-  Icon: {fileID: 0}
+  Icon: {fileID: 21300000, guid: 7025adc1288e26e48a3db388762a9bae, type: 3}
   Description: "\u5355\u5F20\u724C "
   ExtraInfo: "\u53EC\u5524\u5BF9\u5E94\u70B9\u6570\u5175\u79CD\n\u65E0\u6CD5\u89E6\u53D1\u8981\u4E0D\u8D77\u9886\u57DF\n\u724C\u503C\u7531\u5C0F\u5230\u5927\u6392\u5E8F\u4E3A\n3
     4 5 6 7 8 9 10 J Q K A 2 joker"
-  Keywords: []
-  RelatedEntries: []
+  Keywords:
+  - "\u5355\u5F20"
+  - "\u4E00\u5F20"
+  - "\u57FA\u7840"
+  RelatedEntries:
+  - cardtype-pair
+  - cardtype-triple

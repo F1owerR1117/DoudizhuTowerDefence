@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="CodexDemo.uss" />
+
+    <ui:VisualElement name="root" class="root">
+        <!-- 顶栏 -->
+        <ui:VisualElement class="topbar">
+            <ui:Button name="back" text="◀ 返回菜单" class="btn" />
+            <ui:Label text="废土档案终端" class="brand" />
+            <ui:Label text="WASTELAND ARCHIVE TERMINAL · SECTOR 07" class="brand-sub" />
+            <ui:VisualElement class="progress">
+                <ui:Label name="progLabel" text="已解档 0 / 0" class="progress-label" />
+                <ui:VisualElement name="barBg" class="bar-bg" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- 分类页签 -->
+        <ui:VisualElement name="tabs" class="tabs" />
+
+        <!-- 主体 -->
+        <ui:VisualElement class="content">
+            <ui:VisualElement class="panels">
+
+                <ui:VisualElement class="panel-wrap left-wrap">
+                    <ui:VisualElement class="panel-shadow" picking-mode="Ignore" />
+                    <ui:VisualElement class="panel left">
+                        <ui:VisualElement class="panel-head">
+                            <ui:Label text="数据库" class="h1" />
+                            <ui:Label text="DATABASE" class="meta" />
+                            <ui:Label name="badge" text="00" class="badge" />
+                        </ui:VisualElement>
+                        <ui:TextField name="search" class="search" />
+                        <ui:ListView name="list" class="list" />
+                        <ui:VisualElement class="foot-left">
+                            <ui:Label name="count" text="共 0 条" class="count" />
+                            <ui:Label text="↑↓ 选择 · ←→ 分类" class="hint" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <ui:VisualElement class="panel-wrap right-wrap">
+                    <ui:VisualElement class="panel-shadow" picking-mode="Ignore" />
+                    <ui:VisualElement class="panel right">
+                        <ui:VisualElement class="chips">
+                            <ui:VisualElement class="chip">
+                                <ui:Image name="catIcon" class="chip-icon" />
+                                <ui:Label name="catChip" text="卡牌数值" class="chip-text" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="chip mono">
+                                <ui:Label name="idChip" text="—" class="chip-text" />
+                            </ui:VisualElement>
+                            <ui:Label name="stamp" text="未解档" class="stamp off" />
+                        </ui:VisualElement>
+
+                        <ui:Label name="title" text="选择档案" class="title" />
+                        <ui:Label name="sub" text="" class="sub" />
+
+                        <ui:VisualElement class="rule-row">
+                            <ui:VisualElement class="rule-cap" />
+                            <ui:VisualElement class="rule" />
+                            <ui:VisualElement class="rule-cap" />
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="body">
+                            <ui:VisualElement style="flex-direction: column; width: 240px; margin-right: 32px;">
+                                <ui:VisualElement class="socket">
+                                    <ui:VisualElement class="socket-check">
+                                        <ui:Image name="socketIcon" class="socket-icon" />
+                                    </ui:VisualElement>
+                                </ui:VisualElement>
+                                <ui:VisualElement class="meta-list">
+                                    <ui:VisualElement class="meta-row">
+                                        <ui:Label text="编号" class="meta-k" />
+                                        <ui:Label name="metaId" text="—" class="meta-v" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="meta-row">
+                                        <ui:Label text="分类" class="meta-k" />
+                                        <ui:Label name="metaCat" text="—" class="meta-v" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="meta-row">
+                                        <ui:Label text="状态" class="meta-k" />
+                                        <ui:Label name="metaState" text="—" class="meta-v" />
+                                    </ui:VisualElement>
+                                </ui:VisualElement>
+                            </ui:VisualElement>
+                            <ui:ScrollView name="descScroll" class="desc">
+                                <ui:Label name="desc" text="" class="body-text" />
+                            </ui:ScrollView>
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="extras">
+                            <ui:Label text="■ 数据 / DATA" class="label-amber" />
+                            <ui:Label name="extra" text="—" class="body-dim" />
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="keywords">
+                            <ui:Label text="关键词" class="kw-label" />
+                            <ui:VisualElement name="keywordList" style="flex-direction: row; flex-wrap: wrap;" />
+                        </ui:VisualElement>
+
+                        <ui:VisualElement name="related" class="related" />
+
+                        <ui:VisualElement class="foot-right">
+                            <ui:Label text="按 ESC 返回主菜单" class="footer" />
+                            <ui:Label name="footer" text="" class="source" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+            </ui:VisualElement>
+
+            <!-- 底部状态条 -->
+            <ui:VisualElement class="statusbar">
+                <ui:Label text="● SYNC 在线" class="stat stat-live" />
+                <ui:Label text="LINK STABLE" class="stat" />
+                <ui:Label name="statCount" text="缓存 0 条" class="stat" />
+                <ui:Label text="60 FPS" class="stat" />
+                <ui:Label text="PIXEL WASTELAND · BUILD 0.9.3 · 1920×1080" class="stat stat-right" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- 全屏覆盖层（最上层，不接收点击） -->
+        <ui:VisualElement class="overlay" picking-mode="Ignore">
+            <ui:VisualElement class="ov-scan" picking-mode="Ignore" />
+            <ui:VisualElement class="ov-vignette" picking-mode="Ignore" />
+            <ui:VisualElement class="ov-glass" picking-mode="Ignore" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

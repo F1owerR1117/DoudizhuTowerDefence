@@ -15,8 +15,13 @@ MonoBehaviour:
   Id: 14
   DisplayName: "\u724C\u503CA"
   Category: 0
-  Icon: {fileID: -1684687934892386565, guid: 64964ea4e86058b458c3658faa1c40a8, type: 3}
-  Description: 
-  ExtraInfo: 
-  Keywords: []
+  Icon: {fileID: 21300000, guid: 4d98ba43700d74a46817b86a52d65282, type: 3}
+  Description: "\u6ED1\u677F\u5C11\u5E74\uFF1A\u51B2\u950B\u4E0E\u98DE\u6251\u53CC\u7A81\u8FDB\uFF0C\u4E13\u95E8\u5207\u5165\u540E\u6392\u3002"
+  ExtraInfo: "HP 666\u3000\u653B\u51FB 55 / 0.5 \u79D2\u3000\u5C04\u7A0B 20\u3000\u79FB\u901F
+    50\u3000\u9AD8\u5EA6 \u5730\u9762\n\u3000\u51B2\u950B\uFF08\u4F24\u5BB3 \xD710\uFF0C\u51B7\u5374
+    1s\uFF0C\u79FB\u901F \xD72\uFF09\n\u3000\u98DE\u6251\uFF0840 \u683C\u5916\u8DC3\u51FB\uFF09"
+  Keywords:
+  - "\u82F1\u96C4"
+  - "\u51B2\u950B"
+  - "\u5747\u8861"
   RelatedEntries: []

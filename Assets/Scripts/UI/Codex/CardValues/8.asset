@@ -15,8 +15,15 @@ MonoBehaviour:
   Id: 8
   DisplayName: "\u724C\u503C8"
   Category: 0
-  Icon: {fileID: 7384290322352760091, guid: 2b1f65a6e98a2664db1440227648ba7d, type: 3}
-  Description: 
-  ExtraInfo: 
-  Keywords: []
+  Icon: {fileID: 21300000, guid: 4d98ba43700d74a46817b86a52d65282, type: 3}
+  Description: "\u5200\u76FE\uFF1A\u91CD\u88C5\u524D\u6392\uFF0C\u8840\u539A\u79FB\u901F\u6162\uFF0C\u76FE\u5899\u3001\u5632\u8BBD\u3001\u62A4\u76FE\u4E09\u91CD\u751F\u5B58\u624B\u6BB5\u3002"
+  ExtraInfo: "HP 600\u3000\u653B\u51FB 10 / 1 \u79D2\u3000\u5C04\u7A0B 20\u3000\u79FB\u901F
+    15\u3000\u9AD8\u5EA6 \u5730\u9762\n\u3000\u76FE\u5899\uFF08\u534A\u5F84 55\uFF0C\u51CF\u4F24
+    10%\uFF09\n\u3000\u5632\u8BBD\uFF08\u534A\u5F84 55\uFF09\n\u3000\u62A4\u76FE\u5438\u6536\uFF08\u62A4\u76FE
+    500\uFF09"
+  Keywords:
+  - "\u91CD\u88C5"
+  - "\u76FE\u5899"
+  - "\u6247\u5F62"
+  - "\u6B63\u9762"
   RelatedEntries: []

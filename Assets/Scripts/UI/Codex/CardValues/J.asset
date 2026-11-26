@@ -15,8 +15,14 @@ MonoBehaviour:
   Id: 11
   DisplayName: "\u724C\u503CJ"
   Category: 0
-  Icon: {fileID: 21300000, guid: 6b0ba3ef17a62404d985ccc14f6d9c95, type: 3}
-  Description: 
-  ExtraInfo: 
-  Keywords: []
+  Icon: {fileID: 21300000, guid: 4d98ba43700d74a46817b86a52d65282, type: 3}
+  Description: "\u91CD\u9524\u5DE5\u5175\uFF1A\u653B\u901F\u6162\u4F46\u5355\u6B21\u4F24\u5BB3\u6781\u9AD8\uFF0C\u9644\u5E26\u51FB\u6655\u3001\u635F\u4F24\u4E0E\u51FB\u9000\u3002"
+  ExtraInfo: "HP 1000\u3000\u653B\u51FB 125 / 2 \u79D2\u3000\u5C04\u7A0B 30\u3000\u79FB\u901F
+    30\u3000\u9AD8\u5EA6 \u5730\u9762\n\u3000\u7FA4\u4F53\u653B\u51FB\uFF08\u5706\u5F62
+    \u534A\u5F84 10\uFF0C50% \u653B\u51FB\u529B\uFF09\n\u3000\u653B\u51FB\u7729\u6655\uFF080.5s\uFF0C\u6BCF\u6B21\u547D\u4E2D\uFF09\n\u3000\u635F\u4F24\uFF08\u51CF\u901F
+    20%\uFF0C2s\uFF09\n\u3000\u91CD\u51FB\uFF08\u51FB\u9000 5 \u683C\u5E76\u6253\u65AD\uFF09"
+  Keywords:
+  - "\u9AD8\u901F"
+  - "\u6495\u88C2"
+  - "\u53CC\u6BB5"
   RelatedEntries: []

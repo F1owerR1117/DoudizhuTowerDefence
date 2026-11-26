@@ -1,6 +1,7 @@
-# DoudizhuTower — 架构落地规范 v9.3
+# DoudizhuTower — 架构落地规范 v9.4
 
 > 本文档是《即时斗地主塔防》的编码宪法，**必须与代码实际状态保持一致**。
+> 实现核对日期：2026-11-10。标有“目标/历史记录”的章节属于设计约束或旧排查记录，不代表当前运行时已实现或通过验收。
 
 ---
 
@@ -144,7 +145,7 @@
 | `LevelSelectController` | 关卡选择控制器 | UI/LevelSelect | 轮播式关卡选择（中心最大，两侧缩小，拖拽滑动 + 吸附） |
 | `FollowTarget` | 特效跟随组件 | Gameplay/Entities | 使 VFX 特效跟随目标 Transform 移动（君王光环/嘲讽光环） |
 | `INetworkService` | 网络服务接口 | Gameplay/Network | 抽象接口，定义连接/房间/消息/场景同步 API + `OnMasterSwitched` 事件 |
-| `FusionService` | Fusion 实现 | Gameplay/Network | 基于 Photon Fusion 的 INetworkService 实现（Runner 生命周期管理 + TLS 修复 + 房间创建/加入，`ShutdownRunner()` 不销毁 Runner 以便复用） |
+| `FusionService` | Fusion 实现 | Gameplay/Network | `INetworkService` 的 Fusion 2 实现；管理 NetworkRunner、Host 建房与 Client 加房。通用 SendTo* 消息方法在此实现中为空操作并已弃用 |
 | `NetworkManager` | 网络管理器 | Gameplay/Network | 单例，持有 INetworkService 引用，DontDestroyOnLoad |
 | `OnlineLobbyController` | 联机大厅控制器 | UI/Online | 联机模式选择（单排/创建房间/加入房间）+ 房间管理 |
 | `NetworkBiddingManager` | 联机叫分控制器 | UI/Bidding | 通过 INetworkService 抽象层通信，支持 Fusion 和本地联机 |
@@ -152,8 +153,8 @@
 | `NetworkProtocol` | 网络协议常量 | Gameplay/Network | 事件 Key 定义 + Card/CardTypeResult 序列化 + 玩家槽位工具 |
 | `NetworkLogger` | 网络日志 | Gameplay/Network | 将网络相关日志写入 `Logs/network_log_slotN.txt` 文件 |
 | `NetworkDebugPanel` | 网络调试面板 | Gameplay/Network | 游戏内左上角显示槽位/手牌/金币/单位数/最近事件 |
-| `LocalNetworkHub` | 本地联机消息路由 | Gameplay/Network | 静态类，所有 LocalNetworkService 共享，消息直接方法调用 |
-| `LocalNetworkService` | 本地联机服务 | Gameplay/Network | INetworkService 本地实现，零网络延迟，用于单进程多玩家测试 |
+| `LocalNetworkHub` | 本地联机消息路由 | Gameplay/Network | 静态进程内路由中心；维护玩家、准备状态、Master 角色与定向消息 |
+| `LocalNetworkService` | 本地联机服务 | Gameplay/Network | `INetworkService` 的进程内模拟实现，不连接 Photon Cloud；用于本地联机流程测试 |
 | `LocalTestLauncher` | 本地联机测试启动器 | Editor | Editor 窗口（Tools → 本地联机测试），创建多玩家 LocalNetworkService |
 | `GameSnapshot` | Snapshot 层 | Gameplay/Network | 某 Tick 下的完整权威状态（§25），可完全重建游戏，不依赖 Event 历史 |
 | `GameEvent` | Event 层 | Gameplay/Network | 不可变操作记录（§25），append-only，必须携带 Tick，不可直接修改状态 |
@@ -1518,10 +1519,9 @@ _bomberPrefabs[13]:   飞机轰炸机
 
 ### 13.1 架构
 
-**网络模型：Hybrid Authority Model（混合权威模型）**
+**网络模型：Fusion Host Authority（Host 权威）**
 
-Master 立即 apply 状态 + 广播结果，Client 只接收 RESULT 事件镜像状态。
-不使用 Event Sourcing、Pure Functional State Replay、Deterministic Lockstep。
+当前代码以 `FusionGameManager.World` / `State` 作为 `[Networked]` 状态入口。Client 通过 Fusion RPC 提交输入请求；State Authority 校验并推进游戏逻辑，Fusion 同步网络化状态。具体状态是否完整覆盖所有 UI、战斗和断线流程，仍需多客户端运行验证。
 
 **三条不可破坏不变量（顶层约束，高于一切实现细节）：**
 
@@ -1541,7 +1541,7 @@ Master 立即 apply 状态 + 广播结果，Client 只接收 RESULT 事件镜像
 6. **All protocol keys must be request/result paired** — 请求和结果使用独立 Key（如 `DRAW_CARD` / `DRAW_CARD_RESULT`、`PLAY_CARDS` / `PLAY_APPROVED`）。例外：内部同步事件（`MASTER_STATE_SYNC`、`HP_CORRECTION`）、心跳/状态快照无需配对
 7. **UI state from Master snapshot, not local derivation** — `NetworkRemaining` 等 UI 显示状态由 Master 计算后通过 WorldState 同步，Client 直接使用，禁止本地推导。实现：FusionGameManager 维护 `_slotHandCards` + `WorldState.Game.DeckCount` → Client 读取 WorldState → CardCounterUI 显示
 
-> 当前系统的问题不是架构错误，而是协议复用 + 同步时序 + 数据映射的工程问题，已逐一修复。
+> 本节描述目标约束。它不代表所有客户端表现、恢复流程或跨场景桥接已经通过端到端验证。
 
 ### NETWORK EXECUTION GUARANTEE
 
@@ -1554,13 +1554,12 @@ Master 立即 apply 状态 + 广播结果，Client 只接收 RESULT 事件镜像
 5. Client 与 Master 之间的状态偏差视为同步 bug，不视为合法的游戏分歧
 
 ```
-UI 层（OnlineLobbyController / NetworkBiddingManager）
-    ↓ 调用接口
-INetworkService（抽象接口）← FusionGameManager（Tick 状态机 + WorldState 同步）
-    ↑ 实现
-FusionService（Photon Fusion）
-    ↑ 持有
-NetworkManager（单例，DontDestroyOnLoad）
+OnlineLobbyController / NetworkBiddingManager
+    ├── NetworkManager → INetworkService → FusionService → NetworkRunner
+    └── FusionGameManager → [Networked] WorldState/State + RPC（Host 校验请求）
+
+本地模拟路径（编辑器/测试代码自行创建服务，不等同于线上房间）：
+LocalNetworkService → LocalNetworkHub（同一进程内直接路由）
 ```
 
 ### 13.2 接口设计
@@ -1591,8 +1590,11 @@ public interface INetworkService
     bool AreAllPlayersReady { get; }
 
     // 消息同步
+    [Obsolete] // FusionService 中为空操作；由 Fusion RPC / Networked 状态替代
     void SendToAll(string key, object value);
+    [Obsolete]
     void SendToMaster(string key, object value);
+    [Obsolete]
     void SendToPlayer(int actorNumber, string key, object value);
     void SetRoomProperty(string key, object value);
     object GetRoomProperty(string key);
@@ -1603,6 +1605,7 @@ public interface INetworkService
     // 玩家标识
     int LocalActorNumber { get; }
     int[] GetPlayerActorNumbers();
+    int GetActorNumberAtPosition(int position);
 
     // 事件
     event Action OnServerConnected;
@@ -1613,44 +1616,23 @@ public interface INetworkService
     event Action<string> OnPlayerJoined;
     event Action<string> OnPlayerLeft;
     event Action OnAllPlayersReady;
+    event Action OnPlayerReadyChanged;
     event Action<string, object, int> OnCustomEvent;
     event Action OnMasterSwitched;
 }
 ```
 
+`OnCustomEvent` 和定向消息目前只在 `LocalNetworkService` 的进程内模拟中有消息路由。Fusion gameplay 使用 `FusionGameManager` 的类型化 RPC 和 `[Networked]` 状态，不能依赖旧的 `SendTo*` 事件通道。
+
 ### 13.3 Core 层兼容
 
 Core/ 是纯 C# 且逻辑确定性（Deterministic），联机时只需要服务端生成 Random Seed → 同步给所有客户端。
 
-### 13.4 断线重连机制
+### 13.4 断线重连与 Host 迁移
 
-Fusion 使用 Photon Fusion Cloud 内置的断线恢复机制，NetworkRunner 自动处理重连。
+当前 `FusionService` 处理 `OnDisconnectedFromServer` / `OnConnectFailed` 回调并更新连接状态，但没有应用恢复时自动重连、自动重入房间或恢复会话的实现。上线前需要设计并测试重连策略。
 
-**注**：PUN 2 时代的 `DisconnectTimeout=30s` + `ns.photonengine.cn` 配置已不再适用。Fusion 连接由 FusionService.Connect() 管理。
-
-**自动重连触发**：`OnApplicationFocus(hasFocus)` 和 `OnApplicationPause(pauseStatus)` 在应用恢复时检测连接状态，若已断开则自动重连。
-
-**重连策略**：
-- `_shouldRejoinRoom` 标记跟踪是否在房间内（`OnJoinedRoom` 置 true，`LeaveRoom` 置 false）
-- 在房间中断线 → `PhotonNetwork.ReconnectAndRejoin()`（重连服务器 + 重新加入原房间）
-- 在大厅中断线 → `PhotonNetwork.ConnectUsingSettings()`（仅重连服务器）
-
-**生命周期**：
-```
-应用失焦 → OS 限制网络 → Photon 心跳丢失 → 30s 超时 → OnDisconnected(TimeoutDisconnect)
-应用重获焦点 → OnApplicationFocus(true) → TryReconnect() → ReconnectAndRejoin / ConnectUsingSettings
-```
-
-### 13.4a Master 迁移机制
-
-当 Master 客户端断线时，Photon 自动将 Master 权限转移给其他玩家：
-
-```
-旧 Master 断线 → Fusion Host Migration（NetworkRunner 自动处理）
-  → 新 Host 继承 WorldState，Client 自动重连
-```
-
-**状态连续性**：Master 每 5 秒广播完整游戏状态（手牌/经济/牌堆），新 Master 上任后可从最后一次广播恢复。HP 校验和机制确保战斗状态一致。
+`FusionService.OnHostMigration` 当前为空实现。Host 迁移、WorldState 恢复和客户端重新加入均未由本项目代码实现；不能假定 Fusion 会自动迁移并恢复游戏状态。
 
 ### 13.5 网络协议层（NetworkProtocol）
 
@@ -1670,9 +1652,7 @@ public static class NetworkProtocol
     public const string DOMAIN_PENDING, COUNTER_PENDING;
     public const string ADD_AI, REMOVE_AI, KICK_PLAYER;
     public const string CARD_TRANSFER, CARD_ARRIVE, CARD_TAKE;  // 飞筒传牌
-    public const string MASTER_STATE_SYNC;  // Master 状态同步（每 5s 广播手牌/经济/牌堆）
-    public const string HP_CHECKSUM;        // 已弃用
-    public const string HP_CORRECTION;      // Master 广播所有单位 HP（用 UnitId 标识）
+    public const string MASTER_STATE_SYNC;  // 遗留协议常量；不是当前 Fusion 的定时广播通道
 
     // 序列化工具
     public static int[] SerializeCards(Card[] cards);
@@ -1685,89 +1665,68 @@ public static class NetworkProtocol
 }
 ```
 
-**Key 设计原则**：所有 RPC 通信使用 `string Key + object Value` 模式，通过 `OnCustomEvent` 统一分发。
+**传输边界**：`NetworkProtocol` 中保留的 Key/序列化代码属于旧的通用消息协议，仍可用于本地模拟或兼容逻辑。Fusion 玩法同步使用 `FusionGameManager` 上的强类型 RPC 和 `[Networked]` 属性；`FusionService.SendTo*` 是空操作，不得作为 Fusion 消息通道使用。
 
 ### 13.6 已实现功能
 
 | 功能 | 状态 |
 |---|---|
-| 网络抽象层 | ✅ INetworkService 接口（扩展：玩家标识/定向消息/自定义事件） |
+| 模块 | 代码现状 |
+|---|---|
+| 网络服务入口 | `NetworkManager` 持有 `INetworkService`；默认查找或创建 `FusionService` |
+| Fusion 会话 | `FusionService` 使用 Host 创建会话、Client 加入会话，并转发 Runner 回调 |
+| Fusion 游戏状态 | `FusionGameManager` 声明 `[Networked] World` / `State`，在 `FixedUpdateNetwork` 中推进 Host 逻辑 |
+| 玩家请求 | `RpcSubmitBid`、`RpcDrawCard`、`RpcPlayCard` 等 RPC 将输入交给 State Authority 校验 |
+| 本地模拟 | `LocalNetworkService` 与 `LocalNetworkHub` 提供同进程的玩家/准备状态/消息路由模拟 |
+| 兼容消息 API | Fusion 下 `SendToAll`、`SendToMaster`、`SendToPlayer` 不传输消息；已有调用应迁移到 Fusion RPC/网络状态 |
 
-| 网络管理器 | ✅ NetworkManager 单例 |
-| 网络协议层 | ✅ NetworkProtocol（事件 Key + Card/CardTypeResult 序列化） |
-| 联机大厅 UI | ✅ OnlineLobbyController（单排/创建房间/加入房间） |
-| 房间系统 | ✅ 创建/加入/离开/准备/AI 槽位/踢人 |
-| 联机叫分 | ✅ NetworkBiddingManager（3 人轮流叫分 + AI 槽位 + 断线处理） |
-| 叫分场景引导 | ✅ BiddingSceneBootstrap（自动检测联机状态 → 切换单机/联机管理器） |
+此表只记录可从代码确认的实现，不代表多人对局通过端到端验收。房间切换、所有 UI 同步和断线场景需实际多客户端测试。
 
 
-### 13.7 联机游戏管理器
+### 13.7 Fusion 游戏管理器
 
-> ⚠️ **PUN NetworkGameManager 已删除**，由 `FusionGameManager`（§Fusion）替代。
+`FusionGameManager` 是 `NetworkBehaviour`，在网络对象 Spawn 后初始化世界状态和战斗系统。`World` 与 `State` 标记为 `[Networked]`；State Authority 在 `FixedUpdateNetwork` 驱动叫分、出牌、摸牌、领域/传牌和 AI 处理。
 
-**当前架构（Fusion）：**
-- `FusionGameManager`：基于 Tick 状态机 + `[Networked]` 同步
-- `WorldState` struct：唯一真相源，Fusion 自动同步
-- `CombatSystem`：Host 权威战斗逻辑
-- `IntentBuffer`：Client 输入 → Host 处理的桥梁
-- `UnitSyncManager`：单位状态 RPC 同步
-- `AISystem`：Host 侧 AI 决策
+客户端提交输入的代表性 RPC：`RpcSubmitBid`、`RpcDrawCard`、`RpcPlayCard`、`RpcSubmitDomain`、`RpcSubmitTransfer`。Host 通过 `HasStateAuthority` 和 `TryResolveRpcSlot` 验证请求来源，再修改权威状态。私有手牌使用 `RpcRequestPrivateHand` / `RpcReceivePrivateHand` 定向同步；这与广播任意 Key/Value 事件不同。
 
-**数据流：**
 ```
-玩家出牌 → HandArea → FusionGameManager.SetPlayCardInput() → IntentBuffer.AddPlayCard()
-  → Fusion OnInput → FusionGameManager.ProcessNetworkInput() → IntentBuffer → ProcessPlayCards()
-  → 验证手牌 + 金币 + 领域封印 → DeployCards() → DomainSystem.OnCardPlayed()
-
-飞筒传牌 → LaunchTubeUI → FusionGameManager.IntentBuffer.AddTransfer()
-  → ProcessTransfers() → 验证手牌 → ApplyTransfer() → 同步 WorldState.PlayerX.HandCount
-
-摸牌流程:
-  Client: FusionGameManager.SubmitDrawCard() → 修改 WorldState（Host 权威）
-  Host: WorldState.Game.DeckCount 递减，WorldState.PlayerX.HandCount 递增
+UI 输入 → FusionGameManager RPC → Host 校验 → WorldState 更新
+                                    ├→ Fusion 同步 [Networked] 状态
+                                    └→ RPC/本地事件通知视图更新
 ```
 
-**手牌同步机制：**
-- Master 为每个远程玩家创建独立同步牌堆 `_slotDecks[slot]`（与客户端相同种子）
-- 远程玩家摸牌时从各自牌堆抽取（`_slotDecks[slot].Draw()`），保持与客户端一致
-- 远程玩家出牌时从 `_slotHands[slot]` 移除，保持追踪准确
-- 断线转 AI 时继承已追踪的剩余手牌
+`UnitSyncManager`、`ViewBinder`、`HandView`、`GoldView` 和 `CardUnitView` 负责不同的视图/单位呈现职责。代码中存在这些同步路径，但仍需在真实 Host + 多 Client 场景验证手牌、经济、单位生命周期、结算和重连的一致性；不要依据旧版 `MASTER_STATE_SYNC` / `NetworkGameManager` 说明推断它们仍是当前 Fusion 数据流。
 
-**断线转 AI 流程：**
+### 13.8 历史网络同步方案记录（非当前实现）
+
+> 以下内容保留自 v9.3，用于追溯旧设计和排查思路。它描述的是旧版通用消息/同步方案，不是当前 Fusion 实现清单；其中列出的类、字段、Key 和日志标签须先在当前代码中核实后才能用于修改或验收。
+
+旧设计曾记录如下数据流：
+
 ```
-OnPlayerLeft(playerName)
-  → 找到断线槽位（比对 _actorNumbers 与当前连接）
-  → 为该基地添加/启用 BuildingAI
-  → 使用已有 _slotHands[disconnectSlot]（含同步手牌）
-  → 使用已有 _slotEconomies[disconnectSlot]（保留实际金币）
-  → ai.Initialize(hand, economy, ...) + ai.SetNetworkContext(this, slot)
-  → 广播 PLAYER_LEFT
+玩家出牌 → HandArea → SetPlayCardInput() → IntentBuffer
+  → Host 校验手牌/金币/领域封印 → 执行出牌 → 同步状态并通知视图
+
+飞筒传牌 → LaunchTubeUI → IntentBuffer → 校验手牌 → 执行传牌 → 更新双方手牌状态
+摸牌 → Host 扣减牌堆并增加对应玩家手牌
 ```
 
-**关键设计**：
-- Master 维护所有槽位的 `_slotHands`、`_slotDecks`、`_slotEconomies`，Client 只维护自己的
-- 出牌验证在 Master 端完成（手牌 + 金币 + 领域封印），不信任客户端报告的金币
-- AI 出牌通过 `BroadcastAIPlay()` 由 Master 执行并扣除 AI 金币后广播
-- 所有网络事件使用 `SafeInt`/`SafeFloat`/`SafeArray` 安全拆箱，防止 `InvalidCastException`
-- `OnDestroy` 设置 `_initialized = false` 并清除所有引用，防止 `GameSession.Reset()` 时序问题
+旧版方案还曾规划由 Master 跟踪远端玩家的手牌、牌堆和经济，在断线转 AI 时沿用该槽位已跟踪的数据；出牌验证由 Master 执行，避免信任客户端提交的金币或领域状态。旧记录中的 `_slotHands`、`_slotDecks`、`_slotEconomies` 等名称仅代表当时的设计/实现记录，不应据此认定它们当前仍承担权威状态存储。
 
-**同步防护机制（5 项）：**
+以下是历史排查关注点，保留为复核清单而非已验证的现行保障：
 
-| 防护 | 机制 | 解决的问题 |
-|:---|:---|:---|
-| PLAYER_READY 竞态 | `_playerReadyReceived` 集合，MasterDrawCard 拒绝未就绪槽位的摸牌请求 | 自动摸牌先于 PLAYER_READY 到达导致手牌永久不同步 |
-| 金币权威 | 删除 3 处 `SetGold(clientGold)` 覆盖，Master 只用自己追踪的金币 | 客户端伪造金币导致超花或金币不同步 |
-| 领域封印校验 | `MasterValidateAndPlay` 中检查领域封印（炸弹/王炸破封，能管上的牌放行） | 客户端领域状态不同步时出牌被误拦或绕过封印 |
-| StateVersion | `MASTER_STATE_SYNC` 携带版本号，客户端丢弃 `ver <= lastVer` 的旧广播 | 状态广播乱序导致旧状态覆盖新状态 |
-| Network Trace Log | `Trace()` 方法，关键消息统一 `[NET][M/C][seq][msg]` 格式 | 同步问题排查无日志，靠猜定位 |
-| Request/Result 分离 | `DRAW_CARD`（请求）与 `DRAW_CARD_RESULT`（结果）使用独立 Key，Master 收到结果不重复执行 | Master 自广播被误判为新请求，导致无限摸牌循环 |
+| 历史关注点 | 曾记录的处理思路 |
+|:---|:---|
+| 玩家就绪与自动摸牌竞态 | 玩家确认就绪后再接受该槽位的摸牌请求 |
+| 金币权威 | Host 使用权威经济状态，不采纳客户端报告值 |
+| 领域封印校验 | Host 独立校验出牌是否符合领域规则 |
+| 状态版本乱序 | 通过版本号拒收过期状态广播 |
+| 请求/结果重入 | 请求 Key 与结果 Key 分离，避免结果再次被当成请求处理 |
+| 网络追踪 | 记录玩家就绪、出牌、摸牌、状态同步及拒绝原因 |
 
-**Trace 日志关键搜索词：**
-- `PLAYER_READY_SEND` / `PLAYER_READY_RECV` — 玩家就绪
-- `PLAY_CARDS_RECV` / `PLAY_APPROVED` / `PLAY_REJECTED` — 出牌流程
-- `DRAW_CARD` / `DRAW_CARD_RESULT` — 摸牌请求与结果（分离协议）
-- `DRAW_REJECTED_NOT_READY` — PLAYER_READY 竞态触发
-- `STATE_SYNC` / `STATE_SYNC_STALE` — 状态同步及旧版本丢弃
+历史日志搜索词包括 `PLAYER_READY_SEND`、`PLAYER_READY_RECV`、`PLAY_CARDS_RECV`、`PLAY_APPROVED`、`PLAY_REJECTED`、`DRAW_CARD_RESULT`、`DRAW_REJECTED_NOT_READY`、`STATE_SYNC` 和 `STATE_SYNC_STALE`。这些标签不保证仍由当前代码输出。
+
+v9.3 中关于 `OnApplicationFocus` / `OnApplicationPause` 自动重连、`ReconnectAndRejoin()` 以及“Fusion 自动完成 Host 迁移并继承 WorldState”的说明已核对为不符合当前 `FusionService` 实现，因此没有作为可用流程恢复；当前状态见 §13.4。
 
 ---
 
@@ -2523,7 +2482,9 @@ BOSS 技能施法时间与动画同步机制：
 
 ## 24. 架构债务登记
 
-### Fusion 游戏场景集成状态（2026-06-26 更新）
+### Fusion 游戏场景集成状态（历史记录：2026-06-26）
+
+> 下表保留旧版联机排查记录；其中“已完成/未完成”是 2026-06-26 的状态快照，不能当作当前实现结论。当前代码入口见 §13.6–§13.7；联机状态仍需多客户端验证。
 
 | 子系统 | 状态 | 说明 |
 |:---|:---|:---|
@@ -2544,7 +2505,7 @@ BOSS 技能施法时间与动画同步机制：
 | BattleManager→Fusion 桥接 | ❌ 未完成 | OnGameEnded 不触发状态机 |
 | 兵种视觉同步 | ❌ 未完成 | Client 无 UnitView |
 
-以下为已识别但暂不偿还的架构债务，待功能扩展时根据实际痛点决定是否升级。
+以下为既有架构债务登记，部分条目同样来自早期实现状态。修复或关闭条目前应先对照当前代码和多客户端验证结果，避免把历史问题当作现行故障。
 
 | 债务 | 现状 | 触发偿还条件 |
 |:---|:---|:---|
@@ -2570,8 +2531,7 @@ BOSS 技能施法时间与动画同步机制：
 
 ## 25. Event + Snapshot + Tick 三层确定性模型 v2.0（Final Lock）
 
-> 🔒 **不可再扩展协议阶段（Frozen Architecture）**，禁止再演化。
-> 本节取代原 §13 中 `StateVersion` 全局版本号设计，是网络同步的**顶层架构规范**。
+> **目标规范，不等于当前实现状态。** 本节描述期望中的 Event/Snapshot/Tick 收敛模型；当前 Fusion 玩法主要使用 Fusion `[Networked]` 属性和类型化 RPC，尚未全面切换到本节的完整 Event→Snapshot 应用流程。实现状态以 §13 为准。
 
 ### 25.1 系统目标（最终约束）
 
@@ -2748,6 +2708,8 @@ struct DeckState {
 
 ## 26. Truth Source Convergence（真相源收敛）
 
+> 本节是收敛目标与历史核对清单。表中的完成状态来自早期代码审查，尚未由本次文档更新做多人运行验证；应结合 §13.7 和当前多客户端测试结果复核。
+
 > 本节定义所有游戏状态的唯一真相源，确保 Master 是唯一权威写入方。
 > Client 为纯投影层，只读取状态、显示 UI、播放表现。
 
@@ -2851,8 +2813,7 @@ EconomyManager.UpdateGoldUI()
 
 ## 27. Client 战斗表现层（Event-Driven Presentation）
 
-> 🔒 **已冻结**。禁止新增事件类型，禁止重构同步架构。
-> Client 为纯投影层，通过网络事件驱动视觉表现。
+> 本节描述 Client 表现层的设计目标。当前项目的 Fusion 玩法表现同时使用网络状态、Fusion RPC 和本地事件；完整战斗视觉同步尚需多客户端验收。本节的事件名称/实现状态不应被视为传输协议清单。
 
 ### 27.1 设计原则
 

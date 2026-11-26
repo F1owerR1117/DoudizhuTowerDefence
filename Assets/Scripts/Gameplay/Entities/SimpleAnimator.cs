@@ -36,6 +36,8 @@ namespace DoudizhuTower.Gameplay.Entities
         public AnimationClip burnClip;
         [Tooltip("召唤")]
         public AnimationClip summonClip;
+        [Tooltip("飞扑")]
+        public AnimationClip pounceClip;
 
         [Header("-- BOSS 技能动画 --")]
         [Tooltip("冲刺")]
@@ -100,6 +102,7 @@ namespace DoudizhuTower.Gameplay.Entities
                 { "deathexplosion", deathExplosionClip },
                 { "burn", burnClip },
                 { "summon", summonClip },
+                { "pounce", pounceClip },
                 { "dash", dashClip },
                 { "bossskill1", bossSkill1Clip },
                 { "bossskill2", bossSkill2Clip },

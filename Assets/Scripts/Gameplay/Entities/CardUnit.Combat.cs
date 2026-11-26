@@ -213,12 +213,34 @@ namespace DoudizhuTower.Gameplay.Entities
             return result;
         }
 
+        /// <summary>
+        /// 对指定目标的「有效攻击距离」：默认是 Stats.Range，
+        /// 若外部接管了攻击范围（如点杀对残血目标的越界攻击），则使用接管值。
+        /// 飞扑的触发/落点也按这个距离计算，因此会被点杀之类的索敌改动影响。
+        /// </summary>
+        public float GetEffectiveRange(CardUnit target)
+        {
+            if (target == null) return Stats.Range;
+            return OverrideAttackRange != null ? OverrideAttackRange(target) : Stats.Range;
+        }
+
         protected bool IsTargetInRange(CardUnit target)
         {
             if (target == null) return false;
             if (!CanAttackHeight(target.UnitHeight)) return false;
-            float range = OverrideAttackRange != null ? OverrideAttackRange(target) : Stats.Range;
-            return GetUnitEdgeDistance(target) <= range;
+            return GetUnitEdgeDistance(target) <= GetEffectiveRange(target);
+        }
+
+        /// <summary>
+        /// 是否是「治疗攻击」的目标：开启治疗被动、且目标是同阵营友军（含自己）。
+        /// 这类目标不走伤害结算，攻击帧改为施加治疗。
+        /// </summary>
+        public bool IsHealingTarget(CardUnit target)
+        {
+            if (target == null) return false;
+            var p = Passives;
+            if (p == null || !p.enableHeal) return false;
+            return target.IsLandlord == IsLandlord;
         }
 
         // ─── 攻击 ─────────────────────────────────────
@@ -233,11 +255,13 @@ namespace DoudizhuTower.Gameplay.Entities
         protected virtual void TryAttack(CardUnit target)
         {
             if (_isAttacking) return;
-            if (target == null || target == this) return;
+            if (target == null) return;
+            // 允许「治疗自己」：仅当目标是自身且属于治疗攻击时才放行
+            if (target == this && !IsHealingTarget(target)) return;
 
-            // 统一门禁：合法性检查（含 BOSS 激活状态）
+            // 统一门禁：合法性检查（含 BOSS 激活状态）；治疗友军时跳过敌我判定
             var bm = BattleManager.Instance;
-            if (bm != null && !bm.IsValidCombatTarget(this, target)) return;
+            if (bm != null && !IsHealingTarget(target) && !bm.IsValidCombatTarget(this, target)) return;
 
             Debug.Log($"[TRY_ATTACK] {name} target={target.name} dist={GetUnitEdgeDistance(target):F1} isLandlord={IsLandlord} targetIsLandlord={target.IsLandlord}");
             _isAttacking = true;
@@ -336,6 +360,28 @@ namespace DoudizhuTower.Gameplay.Entities
             var boss = GetComponent<BossController>();
             if (boss != null && !boss.IsActive) return;
 
+            // ── 治疗攻击：目标为友军时只施加治疗，不结算伤害、不触发攻击类被动 ──
+            if (IsHealingTarget(_attackTarget))
+            {
+                var healCtl = Passives;
+                if (healCtl != null)
+                {
+                    if (_maxTargets > 1)
+                    {
+                        var healList = new List<CardUnit>();
+                        healCtl.CollectHealTargets(healList, _maxTargets);
+                        if (healList.Count == 0) healList.Add(_attackTarget);
+                        healCtl.ExecuteHealTargets(healList);
+                    }
+                    else
+                    {
+                        healCtl.ExecuteHealTarget(_attackTarget);
+                    }
+                }
+                _hitCountDealt++;
+                return;
+            }
+
             // 多目标模式
             if (_maxTargets > 1)
             {
@@ -354,6 +400,16 @@ namespace DoudizhuTower.Gameplay.Entities
 
                 if (targets.Count == 0) { _hitCountDealt++; return; }
 
+                // 在触发被动之前锁定「本次可打的目标」：
+                // 冲锋一击退出时会还原可攻击高度，若在 OnAttackEvent 之后才过滤，冲锋首击会漏掉空中目标。
+                var hittable = new List<CardUnit>(targets.Count);
+                for (int i = 0; i < targets.Count; i++)
+                {
+                    var t = targets[i];
+                    if (t != null && t.IsAlive && CanAttackHeight(t.UnitHeight)) hittable.Add(t);
+                }
+                if (hittable.Count == 0) { _hitCountDealt++; return; }
+
                 // 一次性计算基础伤害 + 被动加成（人海/冲锋等）
                 _bonusDamage = 0f;
                 OnAttackEvent?.Invoke(_attackTarget);
@@ -361,10 +417,9 @@ namespace DoudizhuTower.Gameplay.Entities
                 float totalDmg = CurrentATK + _bonusDamage;
 
                 // 对每个目标独立触发 per-target 被动（溅射/眩晕等）+ 造成伤害
-                foreach (var t in targets)
+                foreach (var t in hittable)
                 {
                     if (t == null || !t.IsAlive) continue;
-                    if (!CanAttackHeight(t.UnitHeight)) continue;
 
                     // 触发每个目标的溅射/眩晕等被动（不重复人海/冲锋）
                     OnPerTargetAttackEvent?.Invoke(t);
@@ -378,7 +433,7 @@ namespace DoudizhuTower.Gameplay.Entities
                     else
                     {
                         t.LastAttacker = Summoner != null ? Summoner : this;
-                        t.TakeDamage(totalDmg, DamageType.Physical);
+                        t.TakeDamage(totalDmg, DamageType.Physical, Summoner != null ? Summoner : this);
                     }
                 }
             }
@@ -404,14 +459,19 @@ namespace DoudizhuTower.Gameplay.Entities
         /// </summary>
         private void DealAttackDamage()
         {
+            // 必须在触发被动之前锁定可命中性：
+            // 冲锋一击的退出（ApplyCharge → ExitChargeState）会还原「可攻击高度」，
+            // 若在此之后再判断 CanAttackHeight，本次冲锋首击会打空（例如冲锋期间可打空中，退出后判定为不可打）。
+            bool canHitTarget = _attackTarget != null && _attackTarget.IsAlive && _attackTarget != this
+                                && CanAttackHeight(_attackTarget.UnitHeight);
+
             float totalDmg = ComputeAndConsumePassiveDamage();
 
             // 有明确的敌方单位目标 → 打单位
-            if (_attackTarget != null && _attackTarget.IsAlive && _attackTarget != this
-                && CanAttackHeight(_attackTarget.UnitHeight))
+            if (canHitTarget)
             {
                 _attackTarget.LastAttacker = Summoner != null ? Summoner : this;
-                _attackTarget.TakeDamage(totalDmg, DamageType.Physical);
+                _attackTarget.TakeDamage(totalDmg, DamageType.Physical, Summoner != null ? Summoner : this);
             }
             // 无单位目标（正在攻击建筑）→ 打建筑（需在攻击范围内）
             else if (_attackTarget == null && CurrentTarget != null && !CurrentTarget.IsDestroyed)
@@ -454,16 +514,15 @@ namespace DoudizhuTower.Gameplay.Entities
             _attackTimer += Time.deltaTime;
             float t = interval > 0f ? _attackTimer / interval : 1f;
 
-            // 触发所有已到达的攻击帧（二次 null 检查，防御同帧清空）
-            if (_hitTimes == null) return;
-            while (_nextHitIndex < _hitTimes.Length && t >= _hitTimes[_nextHitIndex])
+            // 触发所有已到达的攻击帧（每次循环都重新判空：ExecuteHit 可能因目标失效调用 InterruptAttack 把 _hitTimes 置空）
+            while (_hitTimes != null && _nextHitIndex < _hitTimes.Length && t >= _hitTimes[_nextHitIndex])
             {
                 ExecuteHit(_nextHitIndex);
                 _nextHitIndex++;
             }
 
             // Timeline 完成
-            if (_nextHitIndex >= _hitTimes.Length)
+            if (_hitTimes != null && _nextHitIndex >= _hitTimes.Length)
                 _hitTimelineDone = true;
         }
 
@@ -481,7 +540,7 @@ namespace DoudizhuTower.Gameplay.Entities
             {
                 var ownerBoss = GetComponent<BossController>();
                 if (ownerBoss != null && !ownerBoss.IsActive) return;
-                if (_attackTarget != null && !bm.IsValidCombatTarget(this, _attackTarget))
+                if (_attackTarget != null && !IsHealingTarget(_attackTarget) && !bm.IsValidCombatTarget(this, _attackTarget))
                 {
                     InterruptAttack();
                     return;
@@ -513,26 +572,41 @@ namespace DoudizhuTower.Gameplay.Entities
 
         public virtual void TakeDamage(float rawDamage, DamageType type)
         {
+            TakeDamage(rawDamage, type, null);
+        }
+
+        /// <summary>
+        /// 受伤害（带来源）。source 用于「处决」等需要知道攻击者的被动；
+        /// 火焰区域、死亡爆炸等无主伤害传 null 即可。
+        /// </summary>
+        public virtual void TakeDamage(float rawDamage, DamageType type, CardUnit source)
+        {
             if (SimulationDisabled) return;
             if (!SimulatesCombat) return; // Client 不处理伤害
             if (!IsAlive) return;
             if (Invulnerable) return;
+
+            float hpBefore = _currentHP;
 
             // 真实伤害：无视屏障、盾墙减免、伤害减免
             if (type == DamageType.True)
             {
                 if (_batchDamageEnabled)
                 {
-                    DoudizhuTower.Gameplay.Battle.DamageQueue.Enqueue(this, rawDamage);
+                    DoudizhuTower.Gameplay.Battle.DamageQueue.Enqueue(this, rawDamage, source);
                     return;
                 }
                 _currentHP -= rawDamage;
                 OnHPChanged?.Invoke(_unitId, _currentHP);
 
+                // 真实掉血 → 刷新流血时长
+                if (_currentHP < hpBefore) RefreshBleedOnDamaged();
+
                 // Master 广播受击事件（Client 播放受击动画+飘字）
                 BroadcastHit(rawDamage, type);
 
-                if (_currentHP <= 0f) { _currentHP = 0f; Die(); }
+                if (_currentHP <= 0f) { _currentHP = 0f; Die(); return; }
+                TryExecuteBy(source, hpBefore);
                 return;
             }
 
@@ -579,12 +653,15 @@ namespace DoudizhuTower.Gameplay.Entities
             // 批量模式：入队，帧末统一结算 HP 和死亡
             if (_batchDamageEnabled)
             {
-                DoudizhuTower.Gameplay.Battle.DamageQueue.Enqueue(this, finalDamage);
+                DoudizhuTower.Gameplay.Battle.DamageQueue.Enqueue(this, finalDamage, source);
                 return;
             }
 
             _currentHP -= finalDamage;
             OnHPChanged?.Invoke(_unitId, _currentHP);
+
+            // 真实掉血 → 刷新流血时长
+            if (_currentHP < hpBefore) RefreshBleedOnDamaged();
 
             // Master 广播受击事件（Client 播放受击动画+飘字）
             BroadcastHit(finalDamage, type);
@@ -593,20 +670,59 @@ namespace DoudizhuTower.Gameplay.Entities
             {
                 _currentHP = 0f;
                 Die();
+                return;
             }
+
+            // 处决：本次伤害真实掉血后仍存活，但血量低于处决阈值
+            TryExecuteBy(source, hpBefore);
+        }
+
+        /// <summary>
+        /// 处决判定：本次伤害必须真实扣到 HP（全被护盾/格挡吃掉的伤害不触发），
+        /// 且结算后血量严格低于攻击者的处决阈值，则直接死亡。
+        /// </summary>
+        private void TryExecuteBy(CardUnit source, float hpBefore)
+        {
+            if (source == null) return;
+            if (!IsAlive) return;
+            if (_isBuilding) return;                 // 建筑不吃处决（防止一刀秒基地）
+            if (_currentHP >= hpBefore) return;      // 本次没有真实掉血（护盾全吸收）
+
+            var passives = source.Passives;
+            if (passives == null || !passives.enableExecute) return;
+
+            float threshold = passives.executeThreshold;
+            if (threshold <= 0f) return;
+            if (_currentHP >= threshold) return;     // 未低于阈值
+
+            _currentHP = 0f;
+            OnHPChanged?.Invoke(_unitId, _currentHP);
+            OnExecuted?.Invoke();                    // 飘字：黄色「处决」
+
+            // 表现：由处决执行者播放特效/音效
+            var execVfx = source.GetComponent<UnitVFX>();
+            var execAudio = source.GetComponent<UnitAudio>();
+            execVfx?.PlayExecute(transform);
+            execAudio?.PlayExecute();
+
+            Die();
         }
 
         /// <summary>
         /// 批量结算阶段调用：执行实际 HP 扣除和死亡判定。
         /// 由 DamageQueue.ProcessAll() 调用，不应直接调用。
         /// </summary>
-        public void ApplyDamage(float finalDamage)
+        public void ApplyDamage(float finalDamage, CardUnit source = null)
         {
             if (!IsAlive) return;
             if (Invulnerable) return;
 
+            float hpBefore = _currentHP;
             _currentHP -= finalDamage;
             OnHPChanged?.Invoke(_unitId, _currentHP);
+
+            // 真实掉血 → 刷新流血时长
+            if (_currentHP < hpBefore) RefreshBleedOnDamaged();
 
             // Master 广播受击事件（Client 播放受击动画+飘字）
             BroadcastHit(finalDamage, DamageType.Physical);
@@ -615,7 +731,10 @@ namespace DoudizhuTower.Gameplay.Entities
             {
                 _currentHP = 0f;
                 Die();
+                return;
             }
+
+            TryExecuteBy(source, hpBefore);
         }
 
         // ─── 死亡 ─────────────────────────────────────

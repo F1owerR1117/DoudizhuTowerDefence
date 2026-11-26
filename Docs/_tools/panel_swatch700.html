@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+html,body{margin:0;padding:0;background:#0E0A08;}
+.panel{position:absolute;background:rgba(22,17,14,.97);border:4px solid #0B0908;box-sizing:border-box;
+ box-shadow:inset 0 4px 0 rgba(255,236,200,.13),inset 4px 0 0 rgba(255,236,200,.06),inset 0 -4px 0 rgba(0,0,0,.55),inset -4px 0 0 rgba(0,0,0,.35);}
+.panel::before,.panel::after{content:'';position:absolute;width:10px;height:10px;background:#726151;border:2px solid #0B0908;box-shadow:inset 2px 2px 0 rgba(255,240,210,.35);}
+.panel::before{left:8px;top:8px}.panel::after{right:8px;bottom:8px}
+.tex{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.10) 0 2px,rgba(0,0,0,0) 2px 6px);opacity:.5}
+#left{left:100px;top:100px;width:700px;height:700px}
+#right{left:850px;top:100px;width:1100px;height:700px}
+</style></head><body>
+<div class="panel" id="left"><span class="tex"></span></div>
+<div class="panel" id="right"><span class="tex"></span></div>
+</body></html>

@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e427239fb1e427f44b234fc4c60a6aff, type: 3}
+  m_Name: "\u98DE\u6251"
+  m_EditorClassIdentifier: 
+  Id: passive-pounce
+  DisplayName: "\u98DE\u6251"
+  Category: 4
+  Icon: {fileID: 21300000, guid: 8631ed91109c7a74098723dc3fc02a57, type: 3}
+  Description: "\u76EE\u6807\u5728\u653B\u51FB\u8303\u56F4\u5916\u4F46\u4E0D\u8FDC\u5904\u65F6\uFF0C\u8DC3\u5230\u76EE\u6807\u9762\u524D\u518D\u5F00\u6253\u3002"
+  ExtraInfo: "\xB7 \u843D\u70B9\u521A\u597D\u5728\u653B\u51FB\u8303\u56F4\u8FB9\u7F18\uFF0C\u843D\u5730\u5373\u53EF\u653B\u51FB\n\xB7
+    \u98DE\u884C\u671F\u95F4\u65E0\u89C6\u78B0\u649E\n\xB7 \u53EF\u9009\u62E9\u98DE\u884C\u671F\u95F4\u65E0\u654C\u3001\u6216\u662F\u5426\u4F1A\u88AB\u7729\u6655\u6253\u65AD"
+  Keywords:
+  - "\u98DE\u6251"
+  - "\u8DC3\u51FB"
+  - "\u4F4D\u79FB"
+  - "\u7A81\u8FDB"
+  RelatedEntries:
+  - passive-charge
+  - passive-sniper

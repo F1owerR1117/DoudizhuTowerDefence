@@ -150,13 +150,13 @@ MonoBehaviour:
   _rankPrefabs:
   - {fileID: 5636758891755966072, guid: 1563f4b9fd63dca4085f56e584213bd9, type: 3}
   - {fileID: 65557909550518008, guid: 6f1b7d34ec670694c950cbe66d05aa00, type: 3}
+  - {fileID: 2332244498667367238, guid: 900a7cadc0273e046ac47491a64422cf, type: 3}
   - {fileID: 6603130097588681274, guid: 48965a5965fb4724e8781749a7271fb9, type: 3}
   - {fileID: 5470807353830128555, guid: 269f0ba302221af4ea8caaf9139c3805, type: 3}
-  - {fileID: 5227411719276651910, guid: c824f03cb3835b44e9037e16acc3dfab, type: 3}
   - {fileID: 8664053524669509905, guid: 6109418d784cdfb49ae22da32a350dfb, type: 3}
   - {fileID: 5975774970913554839, guid: 8e7c5bc16109a0041bcdad82bdff24f2, type: 3}
   - {fileID: 9097951520074490669, guid: 4d75bb459b1c1414894f48a3ec75deb7, type: 3}
-  - {fileID: 2332244498667367238, guid: 900a7cadc0273e046ac47491a64422cf, type: 3}
+  - {fileID: 5227411719276651910, guid: c824f03cb3835b44e9037e16acc3dfab, type: 3}
   - {fileID: 6464429135923650665, guid: 644d2f2c89b7b0f4f91d4dae7080ad2a, type: 3}
   - {fileID: 137331508467079383, guid: 82182cdc904af884cbfbe32b5e31094f, type: 3}
   - {fileID: 678163375018215637, guid: c2c3e788bf4701e4cbacac8996fb7a26, type: 3}
@@ -1264,9 +1264,6 @@ MonoBehaviour:
   _winCondition: 1
   unitFactory: {fileID: 1952426892}
   heroPrefab: {fileID: 5470807353830128555, guid: 269f0ba302221af4ea8caaf9139c3805, type: 3}
-  _selectedHero: 0
-  _heroConfig: {fileID: 0}
-  _useHeroPrefabStats: 1
   _gameStateMachine: {fileID: 842581713}
   _enableTyrantAura: 1
   _tyrantHpMultiplier: 1.5

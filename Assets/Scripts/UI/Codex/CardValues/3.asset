@@ -15,9 +15,12 @@ MonoBehaviour:
   Id: 3
   DisplayName: "\u724C\u503C3"
   Category: 0
-  Icon: {fileID: 5352286359449648278, guid: ae2c84d4e78e8a243a715eebb536dcfc, type: 3}
-  Description: "\u8759\u8760 \u98DE\u884C\u5355\u4F4D \n\u53EF\u963B\u6321:\u98DE\u884C\u5355\u4F4D
-    \u53EF\u653B\u51FB:\u5730\u9762\u548C\u98DE\u884C\u5355\u4F4D\n\u6253\u51FA\u5355\u5F203\u540E\u53EC\u5524"
-  ExtraInfo: "\u65E0\u7279\u6B8A\u80FD\u529B"
-  Keywords: []
+  Icon: {fileID: 21300000, guid: 4d98ba43700d74a46817b86a52d65282, type: 3}
+  Description: "\u54E8\u5175\uFF1A\u7A7A\u4E2D\u5355\u4F4D\uFF0C\u79FB\u901F\u6781\u5FEB\u3001\u8840\u91CF\u6781\u8584\uFF0C\u4E13\u95E8\u7ED5\u540E\u9A9A\u6270\u3002"
+  ExtraInfo: "HP 50\u3000\u653B\u51FB 15 / 0.3 \u79D2\u3000\u5C04\u7A0B 25\u3000\u79FB\u901F
+    75\u3000\u9AD8\u5EA6 \u7A7A\u4E2D"
+  Keywords:
+  - "\u98DE\u884C"
+  - "\u9AD8\u901F"
+  - "\u4F4E\u8840"
   RelatedEntries: []

@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e427239fb1e427f44b234fc4c60a6aff, type: 3}
+  m_Name: "\u8FC7\u70ED"
+  m_EditorClassIdentifier: 
+  Id: passive-overheat
+  DisplayName: "\u8FC7\u70ED"
+  Category: 4
+  Icon: {fileID: 21300000, guid: 8631ed91109c7a74098723dc3fc02a57, type: 3}
+  Description: "\u6301\u7EED\u653B\u51FB\u4F1A\u4E0D\u65AD\u63D0\u5347\u81EA\u8EAB\u653B\u51FB\u529B\uFF0C\u505C\u624B\u540E\u4ECD\u4F1A\u4FDD\u7559\u4E00\u6BB5\u65F6\u95F4\u3002"
+  ExtraInfo: "\xB7 \u8FDE\u7EED\u653B\u51FB\u7D2F\u8BA1\u5230\u6574\u79D2\u63D0\u5347\u4E00\u6863\uFF0C\u653B\u51FB\u529B\u52A0\u6210\u6709\u4E0A\u9650\n\xB7
+    \u505C\u624B\u540E\u4FDD\u7559\u4E00\u6BB5\u65F6\u95F4\uFF0C\u5230\u671F\u7ACB\u5373\u6E05\u96F6"
+  Keywords:
+  - "\u8FC7\u70ED"
+  - "\u653B\u51FB\u529B"
+  - "\u6301\u7EED\u8F93\u51FA"
+  RelatedEntries:
+  - passive-swarm
+  - passive-charge

@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e427239fb1e427f44b234fc4c60a6aff, type: 3}
+  m_Name: "\u516D\u8FDE\u4EE5\u4E0A"
+  m_EditorClassIdentifier: 
+  Id: cardtype-straight6
+  DisplayName: "\u516D\u8FDE\u4EE5\u4E0A"
+  Category: 1
+  Icon: {fileID: 21300000, guid: 7025adc1288e26e48a3db388762a9bae, type: 3}
+  Description: "\u8FDE\u7EED\u70B9\u6570\u8FBE\u5230\u516D\u5F20\u4EE5\u4E0A\u65F6\u5355\u72EC\u5F52\u7C7B\u7684\u987A\u5B50\u53D8\u4F53\u3002\u5F20\u6570\u8D8A\u591A\uFF0C\u4E00\u6B21\u94FA\u5F00\u7684\u5355\u4F4D\u8D8A\u591A\uFF0C\u51D1\u9F50\u7684\u4EE3\u4EF7\u4E5F\u8D8A\u9AD8\u3002"
+  ExtraInfo: "\u6743\u91CD 6+\u3000\u51FA\u5175 = \u5F20\u6570\u3000\u9700 6 \u5F20\u4EE5\u4E0A\u8FDE\u7EED\u70B9\u6570"
+  Keywords:
+  - "\u516D\u8FDE"
+  - "\u957F\u987A"
+  - "\u987A\u5B50"
+  RelatedEntries:
+  - cardtype-straight
+  - cardtype-consecutive-pair

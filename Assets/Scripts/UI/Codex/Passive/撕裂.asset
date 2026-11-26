@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e427239fb1e427f44b234fc4c60a6aff, type: 3}
+  m_Name: "\u6495\u88C2"
+  m_EditorClassIdentifier: 
+  Id: passive-tear
+  DisplayName: "\u6495\u88C2"
+  Category: 4
+  Icon: {fileID: 21300000, guid: 8631ed91109c7a74098723dc3fc02a57, type: 3}
+  Description: "\u653B\u51FB\u4F1A\u4E3A\u76EE\u6807\u53E0\u52A0\u6613\u4F24\uFF0C\u5C42\u6570\u8D8A\u591A\u53D7\u5230\u7684\u4F24\u5BB3\u8D8A\u9AD8\u3002"
+  ExtraInfo: "\xB7 \u540C\u4E00\u5175\u79CD\u7684\u91CD\u590D\u547D\u4E2D\u53EA\u53E0\u52A0\u5B83\u81EA\u5DF1\u90A3\u4EFD\u7684\u5C42\u6570\uFF08\u6709\u4E0A\u9650\uFF09\n\xB7
+    \u4E0D\u540C\u5175\u79CD\u7684\u6613\u4F24\u5404\u81EA\u72EC\u7ACB\uFF0C\u6548\u679C\u76F8\u52A0\n\xB7
+    \u53CD\u590D\u547D\u4E2D\u4F1A\u5237\u65B0\u6301\u7EED\u65F6\u95F4"
+  Keywords:
+  - "\u6495\u88C2"
+  - "\u6613\u4F24"
+  - "\u53E0\u52A0"
+  RelatedEntries:
+  - passive-splash
+  - boss-demon

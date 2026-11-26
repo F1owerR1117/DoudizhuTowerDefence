@@ -2614,6 +2614,10 @@ MonoBehaviour:
     music: {fileID: 8300000, guid: 926c277dafc97334f8c5ea23d1a5653e, type: 3}
   - sceneName: Level_5
     music: {fileID: 8300000, guid: a5739518b2a38ac45a4985efa1fd0cb4, type: 3}
+  - sceneName: Codex
+    music: {fileID: 8300000, guid: 757d8209de55f77438978d5e69d9adf1, type: 3}
+  - sceneName: Level_6
+    music: {fileID: 8300000, guid: 01c2c5fef9531ea428613a76ac5c8345, type: 3}
   domainActivateClip: {fileID: 8300000, guid: b8a1e5fe9e1bf514797ab78b1e2d0823, type: 3}
   domainDeactivateClip: {fileID: 0}
   counterShieldClip: {fileID: 8300000, guid: b8a1e5fe9e1bf514797ab78b1e2d0823, type: 3}

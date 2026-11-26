@@ -65,7 +65,7 @@ namespace DoudizhuTower.Gameplay.Battle
         [SerializeField] private float _straight6MoveSpeed = 1.15f;
 
         [Header("合击参数")]
-        [Tooltip("对子第二兵额外伤害倍率 (0.5 = +50%)")]
+        [Tooltip("对子生成的单位攻击力加成 (0.5 = +50% 攻击力，两个单位都生效)")]
         [SerializeField] private float _jointDamageBonus = 0.5f;
 
         [Header("分担参数")]

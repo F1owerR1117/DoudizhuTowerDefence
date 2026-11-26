@@ -57,6 +57,10 @@ namespace DoudizhuTower.Gameplay.Entities
         private bool _heightOverridden;
         private UnitHeight _originalUnitHeight;
         private UnitHeight _blockableByHeight;
+
+        // 运行时「可攻击目标高度」覆盖（如冲锋期间限制可打目标）
+        private bool _attackableOverridden;
+        private UnitHeight _originalCanAttackHeight;
         [Header("索敌范围")]
         [Tooltip("索敌检测范围（0 = 使用攻击范围）。点杀等特化索敌使用此值扩展搜索。")]
         [SerializeField] private float _detectionRange;
@@ -99,6 +103,57 @@ namespace DoudizhuTower.Gameplay.Entities
         // ★ Core 层数据块（由预制体字段组装）
         public SoldierStats Stats { get; protected set; }
 
+        /// <summary>是否正在引导（召唤等）：为 true 时本帧不移动、不攻击</summary>
+        public bool IsChanneling { get; set; }
+
+        /// <summary>
+        /// 编辑期可用的攻击距离：Edit 模式下未调用 Initialize，Stats 为空或为 0，
+        /// Gizmos 需要回退到预制体上的 _range 才能画出正确范围。
+        /// </summary>
+        public float RangeForPreview => Stats.Range > 0f ? Stats.Range : _range;
+
+        /// <summary>编辑期可用的索敌半径（编辑期 Stats 为 0 时回退到攻击距离）</summary>
+        public float DetectionRangeForPreview => _detectionRange > 0f ? _detectionRange : RangeForPreview;
+
+        /// <summary>
+        /// 编辑期可用的碰撞箱中心：Awake 未执行时 _collider 为 null，退化为查找子物体上的碰撞体，
+        /// 保证编辑期与运行期的圆环中心一致（部分兵种碰撞箱有偏移）。
+        /// </summary>
+        public Vector2 PreviewCenter
+        {
+            get
+            {
+                var col = _collider != null ? _collider : GetComponentInChildren<Collider2D>();
+                return col != null ? (Vector2)col.bounds.center : (Vector2)transform.position;
+            }
+        }
+
+        /// <summary>编辑期可用的碰撞箱尺寸（世界空间）</summary>
+        public Vector2 PreviewColliderSize
+        {
+            get
+            {
+                var col = _collider != null ? _collider : GetComponentInChildren<Collider2D>();
+                return col != null ? (Vector2)col.bounds.size : new Vector2(1f, 1f);
+            }
+        }
+
+        private UnitPassives _passives;
+        private bool _passivesCached;
+        /// <summary>被动组件（懒加载并缓存，含「没有该组件」的负缓存，避免每帧 GetComponent）</summary>
+        public UnitPassives Passives
+        {
+            get
+            {
+                if (!_passivesCached)
+                {
+                    _passives = GetComponent<UnitPassives>();
+                    _passivesCached = true;
+                }
+                return _passives;
+            }
+        }
+
         /// <summary>
         /// 建筑初始化血量（替代 Installation.InitHP）。
         /// 直接设置 _hp 字段并重建 Stats，用于建筑预制体的 Start 初始化。
@@ -135,6 +190,12 @@ namespace DoudizhuTower.Gameplay.Entities
         public int UnitId => _unitId;
         public Lane Lane => _lane;
         public bool IsAlive => _currentHP > 0f;
+
+        /// <summary>飞扑进行中（位置由飞扑协程驱动，期间跳过常规移动/攻击决策）</summary>
+        public bool IsPouncing { get; set; }
+
+        /// <summary>重新吸附到最近路径点（飞扑脱离路径后调用）</summary>
+        public void ResnapToClosestPath() => ResnapToClosestPathDistance();
         public float CurrentHP => _currentHP;
         public float MaxHP => Stats.HP;
         public float HPRatio => Stats.HP > 0f ? _currentHP / Stats.HP : 0f;
@@ -147,6 +208,12 @@ namespace DoudizhuTower.Gameplay.Entities
         /// <summary>运行时设置单位 ID（由 BattleManager.RegisterUnit 调用，保证全局唯一）</summary>
         public void SetUnitId(int id) => _unitId = id;
 
+        /// <summary>治疗事件（参数：本次治疗量）。供飘字显示绿色 +N 使用。</summary>
+        public event System.Action<float> OnHealed;
+
+        /// <summary>被处决事件（无参数）。供飘字显示黄色「处决」使用。</summary>
+        public event System.Action OnExecuted;
+
         /// <summary>治疗（不超过 MaxHP）</summary>
         public void Heal(float amount)
         {
@@ -155,6 +222,8 @@ namespace DoudizhuTower.Gameplay.Entities
             if (amount <= 0f) return;
             _currentHP = Mathf.Min(_currentHP + amount, Stats.HP);
             OnHPChanged?.Invoke(_unitId, _currentHP);
+            // 飘字显示治疗量本身（溢出也照常显示，由需求确认）
+            OnHealed?.Invoke(amount);
         }
 
         // 目标
@@ -197,15 +266,33 @@ namespace DoudizhuTower.Gameplay.Entities
         /// <summary>新生成单位的默认 SimulatesCombat 值</summary>
         public static bool SimulatesCombatDefault { get; set; } = true;
 
-        /// <summary>撕裂层数（由 UnitPassives 管理）</summary>
-        public int TearStacks { get; set; }
-        /// <summary>撕裂计时器</summary>
-        public float TearTimer { get; set; }
-        /// <summary>撕裂每层增伤比例（由攻击者设置，如 0.05 = +5%/层）</summary>
-        public float TearDamagePerStack { get; set; }
+        /// <summary>
+        /// 兵种标识：流血/燃烧/撕裂按此合并「来源」。
+        /// 优先用预制体上填写的 _unitTypeId（改名字不会影响）；
+        /// 留空则回退到卡牌点数（同样与名字无关）。
+        /// </summary>
+        [Tooltip("兵种标识（留空 = 用卡牌点数）。同标识的单位施加的持续状态会合并为同一来源")]
+        [SerializeField] private string _unitTypeId;
+
+        private string _unitTypeKeyCached;
+
+        /// <summary>兵种标识（用于被动按兵种合并来源）</summary>
+        public string UnitTypeKey
+        {
+            get
+            {
+                if (_unitTypeKeyCached != null) return _unitTypeKeyCached;
+                _unitTypeKeyCached = !string.IsNullOrEmpty(_unitTypeId)
+                    ? _unitTypeId
+                    : ((int)Stats.Rank).ToString();
+                return _unitTypeKeyCached;
+            }
+        }
 
         /// <summary>减速恢复计时器（>0 时标记移速被临时修改）</summary>
         public float SlowRestoreTimer { get; set; }
+        /// <summary>当前生效的减速光环移速乘数（1 = 无减速）。多光环时记录最强的那个，便于比较。</summary>
+        public float SlowAuraMoveMult { get; set; } = 1f;
         /// <summary>减速前原始移速</summary>
         public float OriginalMoveSpeed { get; set; }
 
@@ -318,6 +405,29 @@ namespace DoudizhuTower.Gameplay.Entities
         /// <summary>本兵种是否可攻击指定高度的目标</summary>
         public bool CanAttackHeight(UnitHeight targetHeight) => (_canAttackHeight & targetHeight) != 0;
 
+        /// <summary>
+        /// 临时覆盖「可攻击的目标高度」（如冲锋期间只能打地面单位）。
+        /// mask 为 0 时不生效。
+        /// </summary>
+        public void SetAttackableHeightOverride(UnitHeight mask)
+        {
+            if (mask == 0) return;
+            if (!_attackableOverridden)
+            {
+                _originalCanAttackHeight = _canAttackHeight;
+                _attackableOverridden = true;
+            }
+            _canAttackHeight = mask;
+        }
+
+        /// <summary>恢复原始的「可攻击的目标高度」</summary>
+        public void ClearAttackableHeightOverride()
+        {
+            if (!_attackableOverridden) return;
+            _canAttackHeight = _originalCanAttackHeight;
+            _attackableOverridden = false;
+        }
+
         /// <summary>本兵种是否会被指定高度的目标阻挡</summary>
         public bool CanBlockHeight(UnitHeight targetHeight) => (_canBlockHeight & targetHeight) != 0;
 
@@ -347,6 +457,9 @@ namespace DoudizhuTower.Gameplay.Entities
 
         // 朝向
         private bool _facingRight = true;
+
+        /// <summary>当前是否朝向右方（攻击前会朝目标转向，因此攻击瞬间的朝向是准确的）</summary>
+        public bool FacingRight => _facingRight;
 
         // 动画驱动攻击状态
         private bool _isAttacking;
@@ -622,21 +735,14 @@ namespace DoudizhuTower.Gameplay.Entities
                 SlowRestoreTimer -= Time.deltaTime;
                 if (SlowRestoreTimer <= 0f)
                 {
-                    RemoveBuff("slow_aura");
                     OriginalMoveSpeed = 0f;
+                    SlowAuraMoveMult = 1f;   // 复位，允许下一个光环重新按强度竞争
+                    RefreshSlowBuff();       // 与损伤通道取更强后重新应用
                 }
             }
 
-            // 撕裂易伤递减（每个单位自己管理自己的计时器）
-            if (TearTimer > 0f)
-            {
-                TearTimer -= Time.deltaTime;
-                if (TearTimer <= 0f)
-                {
-                    TearStacks = 0;
-                    TearDamagePerStack = 0f;
-                }
-            }
+            // 流血 / 燃烧 / 撕裂 / 损伤结算
+            UpdateDoT();
 
             // v2.0: 眩晕递减仅在 Master 端执行
             if (SimulatesCombat && StunTimer > 0f)
@@ -699,6 +805,9 @@ namespace DoudizhuTower.Gameplay.Entities
 
             // ── Stats 未初始化：跳过战斗逻辑 ──
             if (Stats.HP <= 0f) return;
+
+            // ── 飞扑中：位置由飞扑协程驱动，跳过一切移动/攻击决策 ──
+            if (IsPouncing) return;
 
             // ── 攻击中 → Timeline 驱动攻击帧 ──
             if (_isAttacking)
@@ -764,6 +873,14 @@ namespace DoudizhuTower.Gameplay.Entities
                 return;
             }
 
+            // ── 引导中（如召唤师播放召唤动画）→ 原地站定，不移动也不攻击 ──
+            // 由 UnitPassives 在召唤开始时置位、召唤帧/取消时复位。
+            if (IsChanneling)
+            {
+                UpdateAnimatorState(0);
+                return;
+            }
+
             // ── 动态建筑检测：清除已摧毁的目标 ──
             if (CurrentTarget != null && CurrentTarget.IsDestroyed)
                 CurrentTarget = null;
@@ -806,6 +923,33 @@ namespace DoudizhuTower.Gameplay.Entities
                 UpdateTarget();
             }
 
+            // ── 治疗优先：把受伤友军作为攻击目标（走完整攻击流程：走位 → 攻击动画 → 攻击帧治疗） ──
+            var healCtl = Passives;
+            if (healCtl != null)
+            {
+                var healTarget = healCtl.AcquireHealTarget();
+                if (healTarget != null)
+                {
+                    if (healTarget != this)
+                        UpdateFacing(healTarget.VisualCenter - VisualCenter);
+
+                    // 已在攻击距离内 → 发起「治疗攻击」
+                    if (GetUnitEdgeDistance(healTarget) <= Stats.Range)
+                    {
+                        TryAttack(healTarget);
+                        return;
+                    }
+                    // 不在距离内 → 走过去（同路限制与追击敌人一致）
+                    if (_lane == Lane.None || healTarget._lane == _lane)
+                    {
+                        UpdateAnimatorState(1);
+                        MoveTowardTarget(healTarget);
+                        return;
+                    }
+                    // 跨路且追不到 → 放弃治疗，回退正常战斗
+                }
+            }
+
             // 1. 有敌方单位且在射程内 → 攻击并站桩
             if (!buildingLocked && Target != null && Target.IsAlive && IsTargetInRange(Target))
             {
@@ -814,9 +958,13 @@ namespace DoudizhuTower.Gameplay.Entities
                 return;
             }
 
-            // 2. 有敌方单位但不在射程内 → 同路追击，跨路无视（预置兵种 Lane.None 可追击任何路线）
+            // 2. 有敌方单位但不在射程内 → 先尝试飞扑，否则同路追击
             if (!buildingLocked && Target != null && Target.IsAlive && !IsTargetInRange(Target))
             {
+                // 飞扑：目标在射程外、且在飞扑范围内 → 抛物线跃到射程边缘
+                var pounceCtl = Passives;
+                if (pounceCtl != null && pounceCtl.TryStartPounce(Target)) return;
+
                 if (_lane == Lane.None || Target._lane == _lane)
                 {
                     UpdateAnimatorState(1);

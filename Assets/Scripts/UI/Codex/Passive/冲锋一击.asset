@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e427239fb1e427f44b234fc4c60a6aff, type: 3}
+  m_Name: "\u51B2\u950B\u4E00\u51FB"
+  m_EditorClassIdentifier: 
+  Id: passive-charge
+  DisplayName: "\u51B2\u950B\u4E00\u51FB"
+  Category: 4
+  Icon: {fileID: 21300000, guid: 8631ed91109c7a74098723dc3fc02a57, type: 3}
+  Description: "\u51FA\u573A\u65F6\u4EE5\u53CA\u505C\u6B62\u653B\u51FB\u4E00\u6BB5\u65F6\u95F4\u540E\u8FDB\u5165\u51B2\u950B\uFF0C\u4E0B\u4E00\u6B21\u653B\u51FB\u9020\u6210\u989D\u5916\u4F24\u5BB3\uFF0C\u547D\u4E2D\u5373\u9000\u51FA\u3002"
+  ExtraInfo: "\xB7 \u51B2\u950B\u671F\u95F4\u79FB\u52A8\u901F\u5EA6\u63D0\u5347\n\xB7
+    \u51B2\u950B\u671F\u95F4\u53EF\u5355\u72EC\u8BBE\u7F6E\u81EA\u8EAB\u9AD8\u5EA6\u3001\u53EF\u88AB\u963B\u6321\u9AD8\u5EA6\u3001\u53EF\u653B\u51FB\u76EE\u6807\u9AD8\u5EA6\n\xB7
+    \u9000\u51FA\u51B2\u950B\u65F6\u9AD8\u5EA6\u8BBE\u7F6E\u81EA\u52A8\u6062\u590D"
+  Keywords:
+  - "\u51B2\u950B"
+  - "\u7206\u53D1"
+  - "\u9996\u51FB"
+  - "\u79FB\u901F"
+  RelatedEntries:
+  - passive-swarm
+  - passive-stun

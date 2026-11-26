@@ -12,11 +12,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e427239fb1e427f44b234fc4c60a6aff, type: 3}
   m_Name: "\u987A\u5B50"
   m_EditorClassIdentifier: 
-  Id: 
+  Id: cardtype-straight
   DisplayName: "\u987A\u5B50"
   Category: 1
-  Icon: {fileID: 0}
+  Icon: {fileID: 21300000, guid: 7025adc1288e26e48a3db388762a9bae, type: 3}
   Description: "\u4E94\u5F20/\u516D\u5F20\u8FDE\u7EED\u70B9\u6570\u7684\u5355\u724C"
   ExtraInfo: "\u53EC\u5524\u4E94\u4E2A/\u516D\u4E2A\u5BF9\u5E94\u70B9\u6570\u7684\u5175\u79CD\n\u63D0\u5347\u8FD9\u4E9B\u5175\u79CD\u7684\u79FB\u901F\u548C\u653B\u51FB\u901F\u5EA6\n\u516D\u5F20\u7684\u987A\u5B50\u63D0\u5347\u7684\u79FB\u901F\u548C\u653B\u51FB\u901F\u5EA6\u66F4\u9AD8"
-  Keywords: []
-  RelatedEntries: []
+  Keywords:
+  - "\u987A\u5B50"
+  - "\u8FDE\u7EED"
+  - "\u4E94\u8FDE"
+  RelatedEntries:
+  - cardtype-straight6
+  - cardtype-consecutive-pair

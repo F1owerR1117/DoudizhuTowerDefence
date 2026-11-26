@@ -660,7 +660,29 @@ TextureImporter:
     edges: []
     weights: []
     secondaryTextures: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      breath-fire_0: -576225515635537536
+      breath-fire_1: 4643743792949958635
+      breath-fire_10: -367004739317422648
+      breath-fire_11: -7199529672203883758
+      breath-fire_12: 5711590859046294525
+      breath-fire_13: 5958492943077559736
+      breath-fire_14: 7709162768113926468
+      breath-fire_15: -3724253737650194563
+      breath-fire_16: 8262977628691641976
+      breath-fire_17: 8303463950766126953
+      breath-fire_18: -5100519719858658477
+      breath-fire_19: 50698376250109697
+      breath-fire_2: 2415644211309952893
+      breath-fire_20: -5602909710482279081
+      breath-fire_21: 4727835992500653700
+      breath-fire_3: -5957138932976025449
+      breath-fire_4: -1728029377456865803
+      breath-fire_5: -1521020425761959124
+      breath-fire_6: 5521729526851120501
+      breath-fire_7: 3913248026715170499
+      breath-fire_8: -225616673255807840
+      breath-fire_9: -6431868396374605478
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

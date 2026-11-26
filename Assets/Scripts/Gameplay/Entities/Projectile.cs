@@ -220,7 +220,7 @@ namespace DoudizhuTower.Gameplay.Entities
             else if (_target != null && _target.IsAlive)
             {
                 _target.LastAttacker = _shooter;
-                _target.TakeDamage(_damage, _damageType);
+                _target.TakeDamage(_damage, _damageType, _shooter);
             }
 
             // ── 爆炸（额外范围伤害，不重复伤害主目标） ──
@@ -251,7 +251,7 @@ namespace DoudizhuTower.Gameplay.Entities
                         bool canHitHeight = _shooter == null || _shooter.CanAttackHeight(unit.UnitHeight);
                         if (!isSelf && !isMainTarget && isEnemy && canHitHeight)
                         {
-                            unit.TakeDamage(_damage, _damageType);
+                            unit.TakeDamage(_damage, _damageType, _shooter);
                         }
                     }
 

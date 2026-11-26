@@ -12,11 +12,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e427239fb1e427f44b234fc4c60a6aff, type: 3}
   m_Name: "\u4E09\u5F20"
   m_EditorClassIdentifier: 
-  Id: 
+  Id: cardtype-triple
   DisplayName: "\u4E09\u5F20"
   Category: 1
-  Icon: {fileID: 0}
+  Icon: {fileID: 21300000, guid: 7025adc1288e26e48a3db388762a9bae, type: 3}
   Description: "\u4E09\u5F20\u76F8\u540C\u70B9\u6570\u7684\u724C\n"
   ExtraInfo: "\u53EC\u5524\u4E09\u4E2A\u5BF9\u5E94\u70B9\u6570\u7684\u5175\u79CD\n\u8FD9\u4E09\u4E2A\u5175\u79CD\u4F1A\u5206\u62C5\u6536\u5230\u7684\u4F24\u5BB3\n\u6700\u9AD8\u4F53\u529B\u503C\u767E\u5206\u6BD4\u7684\u7684\u5206\u62C560%\n\u5176\u4F59\u5206\u62C520%"
-  Keywords: []
-  RelatedEntries: []
+  Keywords:
+  - "\u4E09\u5F20"
+  - "\u4E09\u4E0D\u5E26"
+  RelatedEntries:
+  - cardtype-triple-one
+  - cardtype-triple-pair

@@ -7,8 +7,9 @@
 - **引擎**: Unity 2023.2.20f1c1
 - **语言**: C#
 - **分辨率**: 1920 x 1080
-- **架构文档**: `ARCHITECTURE.md`（v9.3）
-- **网络方案**: Photon Fusion 2
+- **架构文档**: `ARCHITECTURE.md`（v9.4）
+- **网络方案**: Photon Fusion 2（Host/Client）
+- **编辑器工具**: 项目依赖中包含 Coplay Unity MCP；游戏联网由 Fusion 负责，两者用途不同
 
 ---
 演示视频：https://pan.baidu.com/s/1iIvBPrtIaZvq0sbffZoLsQ?pwd=ddzt
@@ -26,11 +27,9 @@
 
 ### 2. 联机配置
 
-项目使用 Photon Fusion 2 进行联机。需要自行注册 App ID：
+项目使用 Photon Fusion 2 进行联机。首次运行在线模式前，需要在 Photon Dashboard 创建 Fusion 应用，并在 `Assets/Photon/Fusion/Resources/PhotonAppSettings.asset` 中配置 Fusion App ID。不要把个人凭据提交到公开仓库。
 
-1. 复制 `Assets/Photon/PhotonUnityNetworking/Resources/PhotonServerSettings.asset.example`
-2. 重命名为 `PhotonServerSettings.asset`
-3. 将 `AppIdRealtime` 替换为你的 Photon App ID
+`PhotonServerSettings.asset` 属于旧 PUN 配置，不是当前 Fusion 联机入口。
 
 ### 3. 场景列表
 
@@ -102,13 +101,12 @@
 
 ### 联机系统
 
-- **Master 权威架构**: Master 计算，Client 纯投影
-- **Event + Snapshot + Tick 三层模型**: 确定性同步（已冻结）
-- **真相源收敛**: Deck/Hand/Economy/Buff/Stun/Knockback/HP/Target/Position 9 个系统
-- **Client 战斗表现层**: UNIT_ATTACK/UNIT_HIT/UNIT_STUN/UNIT_KNOCKBACK 事件驱动
-- **音效双轨**: Master 本地事件 + Client 网络事件
-- **断线转 AI**: 保留断线玩家实际金币和剩余手牌
-- **SimulatesCombat 门控**: Client 禁止 OnUpdate/TakeDamage/Die，只做视觉行军
+- **Fusion 运行时**: `FusionService` 管理 NetworkRunner、Host 创建房间和 Client 加入房间；`FusionGameManager` 持有网络化 `WorldState`，由 State Authority 驱动 Tick 逻辑。
+- **输入与状态同步**: Client 通过 Fusion RPC 提交叫分、摸牌、出牌等请求；Host 校验请求并更新权威状态，Fusion 同步网络化状态。
+- **视图层**: `ViewBinder`、`HandView`、`GoldView`、`CardUnitView` 等组件把网络状态呈现到本地 UI/单位表现。
+- **本地模拟服务**: `LocalNetworkService` / `LocalNetworkHub` 用于同一进程内的联机流程模拟，不连接 Photon Cloud。
+- **传输边界**: 通用 `SendToAll` / `SendToMaster` 接口已弃用；Fusion 实现不提供任意事件传输，游戏逻辑应使用对应 RPC 和网络状态。
+- **验证状态**: 相关组件已存在于代码中；完整多人流程（尤其断线恢复、Host 迁移和跨客户端战斗表现）仍需在真实多客户端运行中验证，不视为已保证支持。
 
 ---
 
@@ -140,7 +138,7 @@ Assets/
 │   │   │   │   └── WarlockPassive.cs        # 术士（溅射范围伤害）
 │   │   │   ├── HeroUnitConfig.cs            # 英雄配置组件（挂载到预制体）
 │   │   │   └── HeroPassiveBase.cs           # 英雄被动基类
-│   │   ├── Network/         # FusionService, NetworkManager, NetworkFacade
+│   │   ├── Network/         # INetworkService、FusionService、NetworkManager、本地联机模拟
 │   │   ├── Fusion/          # FusionGameManager, CombatSystem, PassiveSystem, IntentBuffer
 │   │   ├── Presentation/    # BattlePresentationManager, CameraDirector, BossDialogueBubble
 │   │   └── Systems/         # GameBootstrapper, GameStateMachine, SaveSystem, AudioManager
@@ -245,6 +243,12 @@ Assets/
 ---
 
 ## 最近更新
+
+### 2026-11-10
+
+- **联机文档校准**: 区分 Fusion 网络化状态/RPC 与本地联机模拟，标明自动重连和 Host 迁移尚未在当前实现中落地。
+- **Unity 编译清理**: 修复重复 using、过时 API 和未使用字段/事件相关诊断；Fusion 编辑器反射调用兼容 Unity 2023.2。
+- **包配置说明**: 在线配置改为 Fusion `PhotonAppSettings.asset`；README 标明项目中的 Coplay Unity MCP 是编辑器工具依赖。
 
 ### 2026-07-26
 

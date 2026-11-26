@@ -23,6 +23,11 @@ namespace DoudizhuTower.Gameplay.Entities
         [Tooltip("溅射特效持续时间（秒）")]
         [SerializeField] private float splashDuration = 0.75f;
 
+        [Tooltip("治疗特效（留空则不播放）")]
+        [SerializeField] private GameObject healVFX;
+        [Tooltip("治疗特效持续时间（秒）")]
+        [SerializeField] private float healDuration = 0.6f;
+
         [Header("-- 技能特效 --")]
         [Tooltip("冲锋特效（留空则不播放）")]
         [SerializeField] private GameObject chargeVFX;
@@ -79,12 +84,75 @@ namespace DoudizhuTower.Gameplay.Entities
         [Tooltip("撕裂特效持续时间（秒）")]
         [SerializeField] private float tearDuration = 0.75f;
 
+        [Header("-- 命中附加状态特效 --")]
+        [Tooltip("流血特效（留空则不播放）")]
+        [SerializeField] private GameObject bleedVFX;
+        [Tooltip("流血特效持续时间（秒）")]
+        [SerializeField] private float bleedDuration = 0.75f;
+
+        [Tooltip("燃烧（点燃）特效（留空则不播放）")]
+        [SerializeField] private GameObject igniteVFX;
+        [Tooltip("点燃特效持续时间（秒）")]
+        [SerializeField] private float igniteDuration = 0.75f;
+
+        [Tooltip("损伤（减速）特效（留空则不播放）")]
+        [SerializeField] private GameObject impairVFX;
+        [Tooltip("损伤特效持续时间（秒）")]
+        [SerializeField] private float impairDuration = 0.6f;
+
+        [Tooltip("重击（击退）特效（留空则不播放）")]
+        [SerializeField] private GameObject heavyStrikeVFX;
+        [Tooltip("重击特效持续时间（秒）")]
+        [SerializeField] private float heavyStrikeDuration = 0.5f;
+
+        [Tooltip("过热光环特效（留空则不播放，持续跟随自身）")]
+        [SerializeField] private GameObject overheatVFX;
+
+        [Header("-- 光环与状态特效 --")]
+        [Tooltip("减速光环特效（留空则不播放，持续跟随自身）")]
+        [SerializeField] private GameObject slowAuraVFX;
+        [Tooltip("人海增伤光环特效（留空则不播放，友军存在时跟随自身）")]
+        [SerializeField] private GameObject swarmAuraVFX;
+        [Tooltip("领袖光环特效（留空则不播放，持续跟随自身）")]
+        [SerializeField] private GameObject leaderAuraVFX;
+        [Tooltip("快速连击爆发特效（留空则不播放）")]
+        [SerializeField] private GameObject burstVFX;
+        [Tooltip("快速连击特效持续时间（秒）")]
+        [SerializeField] private float burstDuration = 0.5f;
+
+        [Tooltip("处决特效（留空则不播放）")]
+        [SerializeField] private GameObject executeVFX;
+        [Tooltip("处决特效持续时间（秒）")]
+        [SerializeField] private float executeDuration = 0.75f;
+
+        [Tooltip("飞扑特效（留空则不播放，起跳与落地各播一次）")]
+        [SerializeField] private GameObject pounceVFX;
+        [Tooltip("飞扑特效持续时间（秒）")]
+        [SerializeField] private float pounceDuration = 0.5f;
+
+        [Tooltip("点杀锁定标记特效（留空则不播放，锁定时挂在目标身上）")]
+        [SerializeField] private GameObject sniperMarkVFX;
+        [Tooltip("锁定标记持续时间（秒）")]
+        [SerializeField] private float sniperMarkDuration = 1f;
+
         #endregion
 
         #region 私有字段
 
         /// <summary>关联的 CardUnit 组件</summary>
         private CardUnit _unit;
+
+        /// <summary>过热光环实例（用于关闭时销毁）</summary>
+        private GameObject _overheatAura;
+
+        /// <summary>减速光环实例</summary>
+        private GameObject _slowAura;
+
+        /// <summary>人海光环实例</summary>
+        private GameObject _swarmAura;
+
+        /// <summary>领袖光环实例</summary>
+        private GameObject _leaderAura;
 
         #endregion
 
@@ -93,6 +161,15 @@ namespace DoudizhuTower.Gameplay.Entities
         private void Awake()
         {
             _unit = GetComponent<CardUnit>();
+        }
+
+        private void OnDisable()
+        {
+            // 回池时清掉持续跟随的光环，避免残留
+            SetOverheatAura(false);
+            SetSlowAura(false);
+            SetSwarmAura(false);
+            SetLeaderAura(false);
         }
 
         #endregion
@@ -151,6 +228,17 @@ namespace DoudizhuTower.Gameplay.Entities
                 float scale = radius / 2f;
                 vfx.transform.localScale = Vector3.one * scale;
             }
+        }
+
+        /// <summary>
+        /// 播放治疗特效（挂在目标身上，跟随移动）。
+        /// 由 UnitPassives 调用。
+        /// </summary>
+        /// <param name="target">被治疗的友方 Transform</param>
+        public void PlayHeal(Transform target)
+        {
+            if (target == null) return;
+            VFXManager.Instance?.SpawnVFX(healVFX, target.position, target, healDuration);
         }
 
         /// <summary>
@@ -289,6 +377,155 @@ namespace DoudizhuTower.Gameplay.Entities
         {
             if (target == null) return;
             VFXManager.Instance?.SpawnVFX(tearVFX, target.position, target, tearDuration);
+        }
+
+        /// <summary>播放流血特效（挂在目标身上）</summary>
+        public void PlayBleed(Transform target)
+        {
+            if (target == null) return;
+            VFXManager.Instance?.SpawnVFX(bleedVFX, target.position, target, bleedDuration);
+        }
+
+        /// <summary>播放点燃特效（挂在目标身上）</summary>
+        public void PlayIgnite(Transform target)
+        {
+            if (target == null) return;
+            VFXManager.Instance?.SpawnVFX(igniteVFX, target.position, target, igniteDuration);
+        }
+
+        /// <summary>播放损伤（减速）特效（挂在目标身上）</summary>
+        public void PlayImpair(Transform target)
+        {
+            if (target == null) return;
+            VFXManager.Instance?.SpawnVFX(impairVFX, target.position, target, impairDuration);
+        }
+
+        /// <summary>播放重击特效（击退方向上的冲击）</summary>
+        public void PlayHeavyStrike(Vector3 position, float distance = 1.5f)
+        {
+            var vfx = VFXManager.Instance?.SpawnVFX(heavyStrikeVFX, position, null, heavyStrikeDuration);
+            if (vfx != null)
+            {
+                float scale = Mathf.Max(distance / 2f, 0.5f);
+                vfx.transform.localScale = Vector3.one * scale;
+            }
+        }
+
+        /// <summary>
+        /// 开关过热光环（持续跟随自身）。加成生效时开启，清零时关闭。
+        /// </summary>
+        public void SetOverheatAura(bool on)
+        {
+            if (on)
+            {
+                if (_overheatAura != null) return;
+                if (overheatVFX == null) return;
+                var vfx = VFXManager.Instance?.SpawnVFX(overheatVFX, _unit.VisualCenter, transform, 0f, false);
+                if (vfx != null)
+                {
+                    var follower = vfx.AddComponent<FollowTarget>();
+                    follower.Initialize(transform, Vector3.zero);
+                    _overheatAura = vfx;
+                }
+            }
+            else if (_overheatAura != null)
+            {
+                Destroy(_overheatAura);
+                _overheatAura = null;
+            }
+        }
+
+        /// <summary>开关减速光环（持续跟随自身，按半径缩放）</summary>
+        public void SetSlowAura(bool on, float radius = 3f)
+        {
+            if (on)
+            {
+                if (_slowAura != null || slowAuraVFX == null) return;
+                var vfx = VFXManager.Instance?.SpawnVFX(slowAuraVFX, _unit.VisualCenter, transform, 0f, false);
+                if (vfx != null)
+                {
+                    vfx.transform.localScale = Vector3.one * Mathf.Max(radius / 2f, 0.1f);
+                    var follower = vfx.AddComponent<FollowTarget>();
+                    follower.Initialize(transform, Vector3.zero);
+                    _slowAura = vfx;
+                }
+            }
+            else if (_slowAura != null)
+            {
+                Destroy(_slowAura);
+                _slowAura = null;
+            }
+        }
+
+        /// <summary>开关人海光环（有友军时显示，按半径缩放）</summary>
+        public void SetSwarmAura(bool on, float radius = 2f)
+        {
+            if (on)
+            {
+                if (_swarmAura != null || swarmAuraVFX == null) return;
+                var vfx = VFXManager.Instance?.SpawnVFX(swarmAuraVFX, _unit.VisualCenter, transform, 0f, false);
+                if (vfx != null)
+                {
+                    vfx.transform.localScale = Vector3.one * Mathf.Max(radius / 2f, 0.1f);
+                    var follower = vfx.AddComponent<FollowTarget>();
+                    follower.Initialize(transform, Vector3.zero);
+                    _swarmAura = vfx;
+                }
+            }
+            else if (_swarmAura != null)
+            {
+                Destroy(_swarmAura);
+                _swarmAura = null;
+            }
+        }
+
+        /// <summary>开关领袖光环（持续跟随自身，按半径缩放）</summary>
+        public void SetLeaderAura(bool on, float radius = 4f)
+        {
+            if (on)
+            {
+                if (_leaderAura != null || leaderAuraVFX == null) return;
+                var vfx = VFXManager.Instance?.SpawnVFX(leaderAuraVFX, _unit.VisualCenter, transform, 0f, false);
+                if (vfx != null)
+                {
+                    vfx.transform.localScale = Vector3.one * Mathf.Max(radius / 2f, 0.1f);
+                    var follower = vfx.AddComponent<FollowTarget>();
+                    follower.Initialize(transform, Vector3.zero);
+                    _leaderAura = vfx;
+                }
+            }
+            else if (_leaderAura != null)
+            {
+                Destroy(_leaderAura);
+                _leaderAura = null;
+            }
+        }
+
+        /// <summary>播放快速连击爆发特效（自身位置）</summary>
+        public void PlayBurst(Transform self)
+        {
+            if (self == null) return;
+            VFXManager.Instance?.SpawnVFX(burstVFX, self.position, self, burstDuration);
+        }
+
+        /// <summary>播放处决特效（被处决目标位置）</summary>
+        public void PlayExecute(Transform target)
+        {
+            if (target == null) return;
+            VFXManager.Instance?.SpawnVFX(executeVFX, target.position, target, executeDuration);
+        }
+
+        /// <summary>播放飞扑特效（起跳或落地位置）</summary>
+        public void PlayPounce(Vector3 position)
+        {
+            VFXManager.Instance?.SpawnVFX(pounceVFX, position, null, pounceDuration);
+        }
+
+        /// <summary>播放点杀锁定标记（挂在目标身上）</summary>
+        public void PlaySniperMark(Transform target)
+        {
+            if (target == null) return;
+            VFXManager.Instance?.SpawnVFX(sniperMarkVFX, target.position, target, sniperMarkDuration);
         }
 
         #endregion

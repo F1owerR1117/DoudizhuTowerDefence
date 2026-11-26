@@ -50,12 +50,21 @@ namespace DoudizhuTower.Gameplay.Battle
         void SpawnPair(Card[] cards, Lane lane, Component sourceBase)
         {
             if (cards.Length < 2) return;
-            CreateUnit(cards[0].Rank, lane, sourceBase, CardType.Pair);
+            var u1 = CreateUnit(cards[0].Rank, lane, sourceBase, CardType.Pair);
             var u2 = CreateUnit(cards[0].Rank, lane, sourceBase, CardType.Pair);
-            // 合击：第二兵额外伤害
-            if (u2 != null)
-                u2.OnAttackEvent += (target) => { u2._bonusDamage += u2.Stats.ATK * _jointDamageBonus; };
+
+            // 合击：对子生成的两个单位都提升攻击力（不再只给第二兵加额外伤害）
+            if (_jointDamageBonus != 0f)
+            {
+                float atkMult = 1f + _jointDamageBonus;
+                if (u1 != null)
+                    u1.ApplyBuff(PairAtkBuffId, new CardUnit.StatBuff(atk: atkMult));
+                if (u2 != null)
+                    u2.ApplyBuff(PairAtkBuffId, new CardUnit.StatBuff(atk: atkMult));
+            }
         }
+
+        private const string PairAtkBuffId = "pair_atk";
 
         void SpawnTriple(Card[] cards, Lane lane, Component sourceBase)
         {
@@ -79,13 +88,13 @@ namespace DoudizhuTower.Gameplay.Battle
             if (_isRedistributingDamage) return;
 
             var allies = new List<CardUnit>();
-            Vector3 pos = damaged.VisualCenter;
             foreach (var unit in _allUnits)
             {
                 if (unit == null || !unit.IsAlive || unit == damaged) continue;
                 if (unit.IsLandlord != damaged.IsLandlord) continue;
                 if (unit.SourceCardType != CardType.Triple) continue;
-                if (Vector2.Distance(pos, unit.VisualCenter) <= _shareRange) allies.Add(unit);
+                // 统一口径：用边缘距离（碰撞体间隙）判定分担范围
+                if (damaged.GetUnitEdgeDistance(unit) <= _shareRange) allies.Add(unit);
             }
             if (allies.Count < 2) return;
 

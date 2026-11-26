@@ -70,6 +70,16 @@ namespace DoudizhuTower.UI.Floating
             {
                 Spawn(damage, unit.transform.position + _offset, type);
             };
+            // 治疗：绿色 +N
+            unit.OnHealed += (amount) =>
+            {
+                Spawn(FloatTextKind.Heal, amount, unit.transform.position + _offset, DamageType.Physical, null);
+            };
+            // 处决：黄色「处决」
+            unit.OnExecuted += () =>
+            {
+                Spawn(FloatTextKind.Execute, 0f, unit.transform.position + _offset, DamageType.Physical, null);
+            };
         }
 
         /// <summary>
@@ -77,10 +87,18 @@ namespace DoudizhuTower.UI.Floating
         /// </summary>
         public void Spawn(float damage, Vector3 position, DamageType type)
         {
+            Spawn(FloatTextKind.Damage, damage, position, type, null);
+        }
+
+        /// <summary>
+        /// 从池中取出一个飘字并显示（指定种类）
+        /// </summary>
+        public void Spawn(FloatTextKind kind, float value, Vector3 position, DamageType type, System.Action onComplete)
+        {
             foreach (var text in _pool)
             {
                 if (text == null || text.gameObject.activeSelf) continue;
-                text.Show(damage, position, type, null);
+                text.Show(kind, value, position, type, onComplete);
                 return;
             }
         }

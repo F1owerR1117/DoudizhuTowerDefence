@@ -15,8 +15,13 @@ MonoBehaviour:
   Id: 16
   DisplayName: "\u724C\u503C2"
   Category: 0
-  Icon: {fileID: 7942859758497058819, guid: b8de93e1f0ba46442a47d4dfebe1746a, type: 3}
-  Description: 
-  ExtraInfo: 
-  Keywords: []
+  Icon: {fileID: 21300000, guid: 4d98ba43700d74a46817b86a52d65282, type: 3}
+  Description: "\u7535\u51FB\u67AA\u624B\uFF1A\u591A\u76EE\u6807\u8FDC\u7A0B\u67AA\u624B\uFF0C\u4E00\u6B21\u653B\u51FB\u53EF\u540C\u65F6\u626B\u5C04\u591A\u4E2A\u654C\u4EBA\uFF0C\u5C04\u7A0B\u6781\u8FDC\u4F46\u8840\u91CF\u504F\u4F4E\u3002"
+  ExtraInfo: "HP 400\u3000\u653B\u51FB 15 / 0.2 \u79D2\u3000\u5C04\u7A0B 70\u3000\u79FB\u901F
+    30\u3000\u76EE\u6807 3\u3000\u9AD8\u5EA6 \u5730\u9762\n\u3000\u7FA4\u4F53\u653B\u51FB\uFF08\u5706\u5F62
+    \u534A\u5F84 5\uFF0C100% \u653B\u51FB\u529B\uFF09"
+  Keywords:
+  - "\u8FDC\u7A0B"
+  - "\u7FA4\u4F24"
+  - "\u8106\u76AE"
   RelatedEntries: []

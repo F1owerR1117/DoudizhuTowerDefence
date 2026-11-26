@@ -140,8 +140,17 @@ namespace DoudizhuTower.UI.Panels
             if (passives.enableStunOnHit)      Append(sb, "眩晕");
             if (passives.enableTear)           Append(sb, "撕裂");
             if (passives.enableShockwave)      Append(sb, "震波");
-            if (passives.enableBurnOnDeath)    Append(sb, "燃烧");
-            if (passives.enableSplash)         Append(sb, "溅射");
+            if (passives.enableBurnOnDeath)    Append(sb, "火海");
+            if (passives.enableSplash)         Append(sb, passives.splashMode == SplashMode.FacingSweep ? "正面群体攻击" : "群体攻击");
+            if (passives.enablePounce)         Append(sb, "飞扑");
+            if (passives.enableBleed)          Append(sb, "流血");
+            if (passives.enableIgnite)         Append(sb, "点燃");
+            if (passives.enableImpair)         Append(sb, "损伤");
+            if (passives.enableHeavyStrike)    Append(sb, "重击");
+            if (passives.enableOverheat)       Append(sb, "过热");
+            if (passives.enableLeader)         Append(sb, "领袖");
+            if (passives.enableHeal)           Append(sb, "治疗");
+            if (passives.enableExecute)        Append(sb, "处决");
 
             Set(passiveText, sb.Length > 0 ? sb.ToString() : "无被动");
         }

@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e427239fb1e427f44b234fc4c60a6aff, type: 3}
+  m_Name: "\u51FA\u573A\u9707\u6CE2"
+  m_EditorClassIdentifier: 
+  Id: passive-shockwave
+  DisplayName: "\u51FA\u573A\u9707\u6CE2"
+  Category: 4
+  Icon: {fileID: 21300000, guid: 8631ed91109c7a74098723dc3fc02a57, type: 3}
+  Description: "\u51FA\u573A\u65F6\u5BF9\u5468\u56F4\u654C\u4EBA\u9020\u6210\u4F24\u5BB3\u5E76\u5C06\u5176\u51FB\u9000\u3002"
+  ExtraInfo: "\xB7 \u53EA\u5F71\u54CD\u81EA\u5DF1\u80FD\u653B\u51FB\u5230\u7684\u9AD8\u5EA6\n\xB7
+    \u51FB\u9000\u8DDD\u79BB\u53EF\u5355\u72EC\u8BBE\u7F6E\uFF0C\u5173\u95ED\u51FB\u9000\u540E\u53EA\u9020\u6210\u4F24\u5BB3"
+  Keywords:
+  - "\u51FA\u573A"
+  - "\u9707\u6CE2"
+  - "\u51FB\u9000"
+  RelatedEntries:
+  - passive-king-aura
+  - passive-death-explosion

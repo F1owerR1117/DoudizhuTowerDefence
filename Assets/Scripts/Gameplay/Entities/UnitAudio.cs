@@ -61,6 +61,46 @@ namespace DoudizhuTower.Gameplay.Entities
         [Tooltip("盾墙音效（留空则不播放）")]
         [SerializeField] private AudioClip shieldWallClip;
 
+        [Header("-- 命中附加状态音效 --")]
+        [Tooltip("流血音效（留空则不播放）")]
+        [SerializeField] private AudioClip bleedClip;
+
+        [Tooltip("燃烧（点燃）音效（留空则不播放）")]
+        [SerializeField] private AudioClip igniteClip;
+
+        [Tooltip("损伤（减速）音效（留空则不播放）")]
+        [SerializeField] private AudioClip impairClip;
+
+        [Tooltip("重击（击退）音效（留空则不播放）")]
+        [SerializeField] private AudioClip heavyStrikeClip;
+
+        [Tooltip("过热音效（留空则不播放）")]
+        [SerializeField] private AudioClip overheatClip;
+
+        [Tooltip("护盾吸收音效（留空则不播放）")]
+        [SerializeField] private AudioClip shieldAbsorbClip;
+
+        [Tooltip("减速光环音效（留空则不播放）")]
+        [SerializeField] private AudioClip slowAuraClip;
+
+        [Tooltip("领袖光环音效（留空则不播放）")]
+        [SerializeField] private AudioClip leaderClip;
+
+        [Tooltip("快速连击爆发音效（留空则不播放）")]
+        [SerializeField] private AudioClip burstClip;
+
+        [Tooltip("处决音效（留空则不播放）")]
+        [SerializeField] private AudioClip executeClip;
+
+        [Tooltip("飞扑音效（留空则不播放）")]
+        [SerializeField] private AudioClip pounceClip;
+
+        [Tooltip("撕裂音效（留空则不播放）")]
+        [SerializeField] private AudioClip tearClip;
+
+        [Tooltip("治疗音效（留空则不播放）")]
+        [SerializeField] private AudioClip healClip;
+
         [Header("-- 音量设置 --")]
         [Tooltip("音量缩放（0-1）")]
         [Range(0f, 1f)]
@@ -253,6 +293,30 @@ namespace DoudizhuTower.Gameplay.Entities
         public void PlaySummon() => PlayWithLimit(summonClip, SfxChannel.CombatLow);
         public void PlayTaunt() => PlayWithLimit(tauntClip, SfxChannel.CombatLow);
         public void PlayShieldWall() => PlayWithLimit(shieldWallClip, SfxChannel.CombatLow);
+
+        // ── 命中附加状态（流血 / 燃烧 / 损伤 / 重击 / 过热）──
+        public void PlayBleed() => PlayWithLimit(bleedClip, SfxChannel.CombatLow);
+        public void PlayIgnite() => PlayWithLimit(igniteClip, SfxChannel.CombatLow);
+        public void PlayImpair() => PlayWithLimit(impairClip, SfxChannel.CombatLow);
+        public void PlayHeavyStrike() => PlayWithLimit(heavyStrikeClip, SfxChannel.CombatLow);
+        public void PlayOverheat() => PlayWithLimit(overheatClip, SfxChannel.CombatLow);
+
+        // ── 其余缺失表现（护盾吸收 / 减速光环 / 连击 / 处决 / 飞扑 / 撕裂 / 治疗）──
+        public void PlayShieldAbsorb() => PlayWithLimit(shieldAbsorbClip, SfxChannel.CombatLow);
+        public void PlaySlowAura() => PlayWithLimit(slowAuraClip, SfxChannel.CombatLow);
+        public void PlayLeader() => PlayWithLimit(leaderClip, SfxChannel.CombatLow);
+        public void PlayBurst() => PlayWithLimit(burstClip, SfxChannel.CombatLow);
+        public void PlayPounce() => PlayWithLimit(pounceClip, SfxChannel.CombatLow);
+        public void PlayTear() => PlayWithLimit(tearClip, SfxChannel.CombatLow);
+        public void PlayHeal() => PlayWithLimit(healClip, SfxChannel.CombatLow);
+
+        /// <summary>处决走高优先级通道，确保能听清</summary>
+        public void PlayExecute()
+        {
+            var audio = AudioManager.Instance;
+            if (audio == null || executeClip == null) return;
+            audio.PlayCombatHigh(executeClip, volumeScale);
+        }
 
         public void PlayDeathExplosion()
         {

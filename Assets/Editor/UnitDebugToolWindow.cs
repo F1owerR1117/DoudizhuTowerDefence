@@ -318,9 +318,9 @@ public class UnitDebugToolWindow : EditorWindow
             ("burnDamagePct", "每秒伤害%", 0f, 1f),
             ("burnDuration", "持续(秒)", 1f, 15f));
 
-        DrawPassiveToggleAndSliders("溅射攻击 (Splash)", "enableSplash",
-            ("splashRadius", "溅射半径", 0.5f, 10f),
-            ("splashDamagePct", "溅射伤害%", 0f, 2f));
+        DrawPassiveToggleAndSliders("群体攻击 (Splash)", "enableSplash",
+            ("splashRadius", "群体半径", 0.5f, 10f),
+            ("splashDamagePct", "群体伤害%", 0f, 2f));
 
         DrawPassiveToggleAndSliders("骑兵追远程 (CavalryChase)", "enableCavalryChase",
             ("cavalryChaseRangeThreshold", "远程阈值", 1f, 20f));

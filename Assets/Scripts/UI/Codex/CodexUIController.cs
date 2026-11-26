@@ -35,19 +35,40 @@ namespace DoudizhuTower.UI.Codex
 
         [Header("进度显示")]
         [SerializeField] private TextMeshProUGUI progressText;
+        [SerializeField] private Image progressFill;
+
+        [Header("页签样式")]
+        [SerializeField] private Sprite tabIdleSprite;
+        [SerializeField] private Sprite tabActiveSprite;
+
+        [Header("档案头信息")]
+        [SerializeField] private TextMeshProUGUI categoryChipText;
+        [SerializeField] private TextMeshProUGUI entryIdText;
+        [SerializeField] private TextMeshProUGUI subText;
+
+        [Header("底部栏")]
+        [SerializeField] private TextMeshProUGUI footerCountText;
+        [SerializeField] private TextMeshProUGUI footerSourceText;
+
+        [Header("关键词")]
+        [SerializeField] private Transform keywordParent;
+        [SerializeField] private Sprite keywordChipSprite;
 
         private CodexCategory _currentCategory = CodexCategory.CardValue;
         private string _searchQuery = "";
         private List<GameObject> _spawnedEntries = new();
         private List<GameObject> _spawnedRelatedEntries = new();
+        private readonly List<Image> _tabImages = new();
         private CodexEntry _selectedEntry;
 
         private readonly string[] _categoryNames = { "卡牌数值", "牌型", "Boss", "建筑", "被动", "规则" };
+        private readonly string[] _categoryCodes = { "CV", "CT", "BS", "BD", "PS", "RL" };
 
         private void Start()
         {
             InitializeDatabases();
             CreateCategoryTabs();
+            ClearDetail();
             RefreshList();
 
             if (backButton != null)
@@ -77,27 +98,69 @@ namespace DoudizhuTower.UI.Codex
         {
             if (categoryTabsParent == null || categoryTabPrefab == null) return;
 
+            _tabImages.Clear();
             var categories = (CodexCategory[])System.Enum.GetValues(typeof(CodexCategory));
             for (int i = 0; i < categories.Length; i++)
             {
                 var tab = Instantiate(categoryTabPrefab, categoryTabsParent);
                 var button = tab.GetComponent<Button>();
                 var text = tab.GetComponentInChildren<TextMeshProUGUI>();
+                var image = tab.GetComponent<Image>();
 
                 if (text != null) text.text = _categoryNames[i];
+                var allTexts = tab.GetComponentsInChildren<TextMeshProUGUI>(true);
+                foreach (var t in allTexts)
+                {
+                    if (t != null && t.gameObject.name == "Code") t.text = _categoryCodes[i];
+                }
+                _tabImages.Add(image);
                 if (button != null)
                 {
                     int categoryIndex = i;
                     button.onClick.AddListener(() => OnCategoryChanged(categories[categoryIndex]));
                 }
             }
+            RefreshTabVisuals();
+        }
+
+        /// <summary>高亮当前分类页签（否则玩家看不出选中了哪个分类）</summary>
+        private void RefreshTabVisuals()
+        {
+            if (tabIdleSprite == null || tabActiveSprite == null) return;
+            int current = (int)_currentCategory;
+            for (int i = 0; i < _tabImages.Count; i++)
+            {
+                if (_tabImages[i] == null) continue;
+                _tabImages[i].sprite = (i == current) ? tabActiveSprite : tabIdleSprite;
+            }
         }
 
         private void OnCategoryChanged(CodexCategory category)
         {
             _currentCategory = category;
+            RefreshTabVisuals();
+            ClearDetail();
             RefreshList();
             UpdateProgress();
+        }
+
+        /// <summary>切换分类时清空右侧详情，避免出现「左侧暂无记录、右侧还是上个分类内容」</summary>
+        private void ClearDetail()
+        {
+            _selectedEntry = null;
+            if (titleText != null) titleText.text = "选择档案";
+            if (descriptionText != null) descriptionText.text = "从左侧列表选择一条记录，查看它的详细说明与关联档案。";
+            if (extraInfoText != null) extraInfoText.text = "—";
+            if (extraInfoContainer != null) extraInfoContainer.SetActive(true);
+            if (unlockStatusText != null) unlockStatusText.text = string.Empty;
+            if (iconImage != null) iconImage.gameObject.SetActive(false);
+            if (categoryChipText != null) categoryChipText.text = _categoryNames[(int)_currentCategory];
+            if (entryIdText != null) entryIdText.text = "—";
+            if (subText != null) subText.text = string.Empty;
+            if (footerSourceText != null) footerSourceText.text = string.Empty;
+            if (keywordParent != null)
+                for (int i = keywordParent.childCount - 1; i >= 0; i--)
+                    Destroy(keywordParent.GetChild(i).gameObject);
         }
 
         private void OnSearchChanged(string query)
@@ -119,9 +182,21 @@ namespace DoudizhuTower.UI.Codex
             _spawnedEntries.Clear();
 
             var db = GetCurrentDatabase();
-            if (db == null) return;
+            if (db == null)
+            {
+                SetFooter(0, 0);
+                ShowEmptyState(false);
+                return;
+            }
 
             var entries = db.Search(_searchQuery);
+
+            if (entries == null || entries.Count == 0)
+            {
+                SetFooter(0, db.Entries.Count);
+                ShowEmptyState(!string.IsNullOrWhiteSpace(_searchQuery));
+                return;
+            }
 
             foreach (var entry in entries)
             {
@@ -133,6 +208,13 @@ namespace DoudizhuTower.UI.Codex
                 // 设置文本
                 var text = buttonObj.GetComponentInChildren<TextMeshProUGUI>();
                 if (text != null) text.text = entry.DisplayName;
+
+                var idT = buttonObj.transform.Find("Id");
+                if (idT != null)
+                {
+                    var idTmp = idT.GetComponent<TextMeshProUGUI>();
+                    if (idTmp != null) idTmp.text = string.IsNullOrEmpty(entry.Id) ? "" : "#" + entry.Id.ToUpper();
+                }
 
                 // 设置图标
                 var icon = buttonObj.transform.Find("Icon")?.GetComponent<Image>();
@@ -154,6 +236,78 @@ namespace DoudizhuTower.UI.Codex
 
                 _spawnedEntries.Add(buttonObj);
             }
+
+            SetFooter(entries.Count, db.Entries.Count);
+        }
+
+        /// <summary>空分类 / 搜索无结果时的占位提示</summary>
+        private void ShowEmptyState(bool hasQuery)
+        {
+            if (contentParent == null) return;
+
+            var go = new GameObject("EmptyState", typeof(RectTransform));
+            go.transform.SetParent(contentParent, false);
+
+            var tmp = go.AddComponent<TextMeshProUGUI>();
+            if (titleText != null && titleText.font != null) tmp.font = titleText.font;
+            tmp.text = hasQuery ? "没有匹配的档案" : "暂无记录";
+            tmp.fontSize = 20f;
+            tmp.color = new Color(0.47f, 0.41f, 0.33f, 1f);
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.raycastTarget = false;
+
+            var rt = go.GetComponent<RectTransform>();
+            rt.sizeDelta = new Vector2(0f, 96f);
+            var le = go.AddComponent<LayoutElement>();
+            le.preferredHeight = 96f;
+
+            _spawnedEntries.Add(go);
+        }
+
+        /// <summary>关键词 chips（运行时生成，无需额外 Prefab）</summary>
+        private void BuildKeywords(string[] kws)
+        {
+            if (keywordParent == null) return;
+            for (int i = keywordParent.childCount - 1; i >= 0; i--)
+                Destroy(keywordParent.GetChild(i).gameObject);
+            if (kws == null) return;
+
+            var font = titleText != null ? titleText.font : null;
+            foreach (string k in kws)
+            {
+                var go = new GameObject("Kw", typeof(RectTransform));
+                go.transform.SetParent(keywordParent, false);
+
+                var img = go.AddComponent<Image>();
+                img.sprite = keywordChipSprite;
+                img.type = Image.Type.Sliced;
+                img.color = new Color(0.62f, 0.72f, 0.62f, 1f);
+                img.raycastTarget = false;
+
+                var le = go.AddComponent<LayoutElement>();
+                le.preferredHeight = 30f;
+                le.preferredWidth = 24f + k.Length * 18f;
+
+                var tmp = new GameObject("T", typeof(RectTransform)).AddComponent<TextMeshProUGUI>();
+                tmp.transform.SetParent(go.transform, false);
+                if (font != null) tmp.font = font;
+                tmp.text = k;
+                tmp.fontSize = 18f;
+                tmp.color = new Color(0.42f, 0.87f, 0.65f, 1f);
+                tmp.alignment = TextAlignmentOptions.Center;
+                tmp.raycastTarget = false;
+                var trt = (RectTransform)tmp.transform;
+                trt.anchorMin = Vector2.zero;
+                trt.anchorMax = Vector2.one;
+                trt.offsetMin = new Vector2(8f, 0f);
+                trt.offsetMax = new Vector2(-8f, 0f);
+            }
+        }
+
+        private void SetFooter(int shown, int total)
+        {
+            if (footerCountText != null)
+                footerCountText.text = string.Format("共 {0} 条 / 全部 {1} 条", shown, total);
         }
 
         private void OnEntryClicked(CodexEntry entry)
@@ -174,6 +328,15 @@ namespace DoudizhuTower.UI.Codex
         private void UpdateDetailPanel(CodexEntry entry)
         {
             if (entry == null) return;
+
+            if (categoryChipText != null) categoryChipText.text = _categoryNames[(int)entry.Category];
+            if (entryIdText != null)
+                entryIdText.text = string.IsNullOrEmpty(entry.Id) ? "—" : entry.Id.ToUpper();
+            if (subText != null)
+                subText.text = string.IsNullOrEmpty(entry.Id) ? "" : entry.Id.ToUpper().Replace('-', ' ');
+            if (footerSourceText != null)
+                footerSourceText.text = "SOURCE · CodexDatabase / " + entry.Category;
+            BuildKeywords(entry.Keywords);
 
             if (titleText != null) titleText.text = entry.DisplayName;
             if (iconImage != null)
@@ -259,6 +422,9 @@ namespace DoudizhuTower.UI.Codex
             }
 
             progressText.text = $"解锁进度: {unlocked}/{total}";
+
+            if (progressFill != null)
+                progressFill.fillAmount = total > 0 ? (float)unlocked / total : 0f;
         }
 
         private void OnBackClicked()

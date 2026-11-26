@@ -12,11 +12,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e427239fb1e427f44b234fc4c60a6aff, type: 3}
   m_Name: "\u70B8\u5F39"
   m_EditorClassIdentifier: 
-  Id: 
+  Id: cardtype-bomb
   DisplayName: "\u70B8\u5F39"
   Category: 1
-  Icon: {fileID: 0}
+  Icon: {fileID: 21300000, guid: 7025adc1288e26e48a3db388762a9bae, type: 3}
   Description: "\u56DB\u5F20\u76F8\u540C\u70B9\u6570\u7684\u724C"
   ExtraInfo: "\u53EC\u5524\u4E00\u4E2A\u53CA\u5176\u5F3A\u5927\u7684\u5175\u79CD\n\u6253\u51FA\u540E\u80FD\u591F\u76F4\u63A5\u7834\u89E3\u8981\u4E0D\u8D77\u9886\u57DF/\u53CD\u5236\u62A4\u76FE"
-  Keywords: []
-  RelatedEntries: []
+  Keywords:
+  - "\u70B8\u5F39"
+  - "\u7206\u7834"
+  - "\u538B\u5236"
+  RelatedEntries:
+  - cardtype-kingbomb
+  - passive-splash
