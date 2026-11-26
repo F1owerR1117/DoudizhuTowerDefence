@@ -53,13 +53,29 @@ namespace DoudizhuTower.Gameplay.Entities
 
         private void OnSummonerKill(CardUnit victim)
         {
-            if (victim == null || summonPrefab == null) return;
-            if (_summons.Count >= maxSummons) return;
-            if (_owner.StunTimer > 0f) return;
+            // 启用攻击节拍时，击杀召唤改由「造成击杀的那一段」的 SummonOnKill 决定，
+            // 全局的「击杀即召唤」不再无条件触发，避免抢占节拍的编排。
+            if (RhythmActive) return;
+            TriggerKillSummon(victim, 1);
+        }
+
+        /// <summary>
+        /// 击杀召唤的统一入口（供全局击杀被动与攻击节拍共用）。
+        /// 返回是否真的召唤出了单位。
+        /// </summary>
+        public bool TriggerKillSummon(CardUnit victim, int count)
+        {
+            if (victim == null || summonPrefab == null) return false;
+            _summons.RemoveAll(u => u == null || !u.IsAlive);
+            if (_summons.Count >= maxSummons) return false;
+            if (_owner.StunTimer > 0f) return false;
             // 击杀召唤物不会触发重复召唤，防止无限循环
-            if (victim.Summoner != null) return;
-            // 击杀召唤：立刻从尸体位置生成，不播放动画（固定 1 只）
-            SpawnSummon(victim.VisualCenter, 1);
+            if (victim.Summoner != null) return false;
+
+            int n = Mathf.Max(1, count);
+            int pre = _summons.Count;
+            SpawnSummon(victim.VisualCenter, n);
+            return _summons.Count > pre;
         }
 
         /// <summary>开始召唤：播放召唤动画，调整速度对齐间隔</summary>

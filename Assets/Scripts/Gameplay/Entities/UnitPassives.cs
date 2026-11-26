@@ -539,13 +539,28 @@ namespace DoudizhuTower.Gameplay.Entities
         }
 
         /// <summary>
-        /// 命中单个目标时生效的被动集合：眩晕 / 流血 / 燃烧 / 损伤 / 重击。
+        /// 命中单个目标时的效果入口。
+        /// 节拍未启用 → 走原有全局被动；节拍启用 → 默认由节拍接管（可用 legacyOnHitPassives = Add 叠加）。
         /// 单目标与多目标共用同一入口，保证两种模式行为一致。
         /// </summary>
         private void ApplyOnHitEffects(CardUnit target)
         {
             if (target == null || !target.IsAlive) return;
 
+            bool rhythmOn = RhythmActive;
+
+            if (!rhythmOn || legacyOnHitPassives == LegacyOnHitMode.Add)
+                ApplyLegacyOnHitEffects(target);
+
+            if (rhythmOn)
+                ApplyRhythmEffects(target);
+        }
+
+        /// <summary>
+        /// 原有全局命中被动集合：眩晕 / 流血 / 燃烧 / 损伤 / 重击。
+        /// </summary>
+        private void ApplyLegacyOnHitEffects(CardUnit target)
+        {
             // 眩晕（受「每 N 次攻击」限制）
             if (enableStunOnHit && _stunThisAttack)
             {

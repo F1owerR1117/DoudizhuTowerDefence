@@ -264,6 +264,10 @@ namespace DoudizhuTower.Gameplay.Entities
             if (bm != null && !IsHealingTarget(target) && !bm.IsValidCombatTarget(this, target)) return;
 
             Debug.Log($"[TRY_ATTACK] {name} target={target.name} dist={GetUnitEdgeDistance(target):F1} isLandlord={IsLandlord} targetIsLandlord={target.IsLandlord}");
+
+            // 攻击节拍：本次挥击回到第 1 格（之后每段命中各走一格）
+            if (Passives != null) Passives.RestartRhythm();
+
             _isAttacking = true;
             _attackTarget = target;
             _hitCountDealt = 0;
@@ -316,6 +320,8 @@ namespace DoudizhuTower.Gameplay.Entities
             OnAttackEvent?.Invoke(_attackTarget);
             OnAttack(_attackTarget);
             float total = CurrentATK + _bonusDamage;
+            // 攻击节拍：每击伤害倍率（未启用时恒为 1）
+            if (Passives != null) total *= Passives.CurrentRhythmMultiplier;
             return total;
         }
 
@@ -359,6 +365,9 @@ namespace DoudizhuTower.Gameplay.Entities
             // 门禁：未激活 BOSS 不允许造成伤害
             var boss = GetComponent<BossController>();
             if (boss != null && !boss.IsActive) return;
+
+            // 攻击节拍：每段命中各走一格（严格与 HitCount 一一对应）
+            if (Passives != null) Passives.AdvanceRhythm();
 
             // ── 治疗攻击：目标为友军时只施加治疗，不结算伤害、不触发攻击类被动 ──
             if (IsHealingTarget(_attackTarget))
@@ -415,6 +424,8 @@ namespace DoudizhuTower.Gameplay.Entities
                 OnAttackEvent?.Invoke(_attackTarget);
                 OnAttack(_attackTarget);
                 float totalDmg = CurrentATK + _bonusDamage;
+                // 攻击节拍：与单目标路径保持一致，多目标也不让伤害翻倍计算
+                if (Passives != null) totalDmg *= Passives.CurrentRhythmMultiplier;
 
                 // 对每个目标独立触发 per-target 被动（溅射/眩晕等）+ 造成伤害
                 foreach (var t in hittable)
@@ -588,12 +599,24 @@ namespace DoudizhuTower.Gameplay.Entities
 
             float hpBefore = _currentHP;
 
+            // 攻击节拍：本次伤害所属的「段」允许的处决阈值（0 = 不处决）。
+            // 批量模式下伤害会延迟到帧末结算，因此必须随伤害条目一起传递，
+            // 不能等到处决判定时再去问攻击者当前处于第几段。
+            float execThreshold = source != null && source.Passives != null
+                ? source.Passives.CurrentExecuteThreshold
+                : 0f;
+
+            // 同样的道理：本段击杀是否要召唤，也必须随条目传递
+            int summonOnKill = source != null && source.Passives != null
+                ? source.Passives.CurrentSummonOnKill
+                : 0;
+
             // 真实伤害：无视屏障、盾墙减免、伤害减免
             if (type == DamageType.True)
             {
                 if (_batchDamageEnabled)
                 {
-                    DoudizhuTower.Gameplay.Battle.DamageQueue.Enqueue(this, rawDamage, source);
+                    DoudizhuTower.Gameplay.Battle.DamageQueue.Enqueue(this, rawDamage, source, execThreshold, summonOnKill);
                     return;
                 }
                 _currentHP -= rawDamage;
@@ -605,8 +628,8 @@ namespace DoudizhuTower.Gameplay.Entities
                 // Master 广播受击事件（Client 播放受击动画+飘字）
                 BroadcastHit(rawDamage, type);
 
-                if (_currentHP <= 0f) { _currentHP = 0f; Die(); return; }
-                TryExecuteBy(source, hpBefore);
+                if (_currentHP <= 0f) { _currentHP = 0f; Die(); NotifyKillSummon(source, summonOnKill); return; }
+                TryExecuteBy(source, hpBefore, execThreshold, summonOnKill);
                 return;
             }
 
@@ -653,7 +676,7 @@ namespace DoudizhuTower.Gameplay.Entities
             // 批量模式：入队，帧末统一结算 HP 和死亡
             if (_batchDamageEnabled)
             {
-                DoudizhuTower.Gameplay.Battle.DamageQueue.Enqueue(this, finalDamage, source);
+                DoudizhuTower.Gameplay.Battle.DamageQueue.Enqueue(this, finalDamage, source, execThreshold, summonOnKill);
                 return;
             }
 
@@ -670,28 +693,36 @@ namespace DoudizhuTower.Gameplay.Entities
             {
                 _currentHP = 0f;
                 Die();
+                NotifyKillSummon(source, summonOnKill);
                 return;
             }
 
-            // 处决：本次伤害真实掉血后仍存活，但血量低于处决阈值
-            TryExecuteBy(source, hpBefore);
+            // 处决：本次伤害真实掉血后仍存活，但血量低于本段的处决阈值
+            TryExecuteBy(source, hpBefore, execThreshold, summonOnKill);
+        }
+
+        /// <summary>击杀召唤：由击杀方按「造成击杀那一段」的配置召唤</summary>
+        private void NotifyKillSummon(CardUnit source, int count)
+        {
+            if (count <= 0 || source == null) return;
+            var p = source.Passives;
+            if (p == null) return;
+            p.TriggerKillSummon(this, count);
         }
 
         /// <summary>
         /// 处决判定：本次伤害必须真实扣到 HP（全被护盾/格挡吃掉的伤害不触发），
-        /// 且结算后血量严格低于攻击者的处决阈值，则直接死亡。
+        /// 且结算后血量严格低于「造成这次伤害那一段」的处决阈值，则直接死亡。
+        /// 阈值为 0 表示这一段不带处决。
         /// </summary>
-        private void TryExecuteBy(CardUnit source, float hpBefore)
+        private void TryExecuteBy(CardUnit source, float hpBefore, float executeThreshold = 0f, int summonOnKill = 0)
         {
             if (source == null) return;
             if (!IsAlive) return;
             if (_isBuilding) return;                 // 建筑不吃处决（防止一刀秒基地）
             if (_currentHP >= hpBefore) return;      // 本次没有真实掉血（护盾全吸收）
 
-            var passives = source.Passives;
-            if (passives == null || !passives.enableExecute) return;
-
-            float threshold = passives.executeThreshold;
+            float threshold = executeThreshold;
             if (threshold <= 0f) return;
             if (_currentHP >= threshold) return;     // 未低于阈值
 
@@ -706,13 +737,14 @@ namespace DoudizhuTower.Gameplay.Entities
             execAudio?.PlayExecute();
 
             Die();
+            NotifyKillSummon(source, summonOnKill);
         }
 
         /// <summary>
         /// 批量结算阶段调用：执行实际 HP 扣除和死亡判定。
         /// 由 DamageQueue.ProcessAll() 调用，不应直接调用。
         /// </summary>
-        public void ApplyDamage(float finalDamage, CardUnit source = null)
+        public void ApplyDamage(float finalDamage, CardUnit source = null, float executeThreshold = 0f, int summonOnKill = 0)
         {
             if (!IsAlive) return;
             if (Invulnerable) return;
@@ -731,10 +763,11 @@ namespace DoudizhuTower.Gameplay.Entities
             {
                 _currentHP = 0f;
                 Die();
+                NotifyKillSummon(source, summonOnKill);
                 return;
             }
 
-            TryExecuteBy(source, hpBefore);
+            TryExecuteBy(source, hpBefore, executeThreshold, summonOnKill);
         }
 
         // ─── 死亡 ─────────────────────────────────────

@@ -344,6 +344,10 @@ MonoBehaviour:
   pounceInvulnerable: 0
   pounceInterruptible: 0
   pounceBlockOneShotAnim: 1
+  rhythm:
+    enable: 0
+    steps: []
+  legacyOnHitPassives: 0
 --- !u!114 &4920431517600777769
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -16,6 +16,10 @@ namespace DoudizhuTower.Gameplay.Battle
             public float FinalDamage;
             /// <summary>伤害来源（用于处决等按来源判定的被动）；可为空</summary>
             public CardUnit Source;
+            /// <summary>本次伤害所属「段」的处决阈值；0 = 这一段不处决</summary>
+            public float ExecuteThreshold;
+            /// <summary>本次伤害所属「段」的击杀召唤数量；0 = 这一段击杀不召唤</summary>
+            public int SummonOnKill;
         }
 
         private static readonly List<DamageEntry> _queue = new();
@@ -40,12 +44,32 @@ namespace DoudizhuTower.Gameplay.Battle
         /// </summary>
         public static void Enqueue(CardUnit target, float finalDamage, CardUnit source)
         {
+            Enqueue(target, finalDamage, source, 0f, 0);
+        }
+
+        /// <summary>
+        /// 入队一条伤害，附带「本次伤害所属段的处决阈值」。
+        /// 该阈值必须随条目一起结算：批量模式下伤害延迟到帧末，
+        /// 届时攻击者的节拍可能已经推进到下一段。
+        /// </summary>
+        public static void Enqueue(CardUnit target, float finalDamage, CardUnit source, float executeThreshold)
+        {
+            Enqueue(target, finalDamage, source, executeThreshold, 0);
+        }
+
+        /// <summary>
+        /// 入队一条伤害，附带「处决阈值 + 击杀召唤数量」。
+        /// </summary>
+        public static void Enqueue(CardUnit target, float finalDamage, CardUnit source, float executeThreshold, int summonOnKill)
+        {
             if (target == null || !target.IsAlive) return;
             _queue.Add(new DamageEntry
             {
                 Target = target,
                 FinalDamage = finalDamage,
-                Source = source
+                Source = source,
+                ExecuteThreshold = executeThreshold,
+                SummonOnKill = summonOnKill
             });
         }
 
@@ -71,7 +95,7 @@ namespace DoudizhuTower.Gameplay.Battle
                 foreach (var entry in batch)
                 {
                     if (entry.Target == null || !entry.Target.IsAlive) continue;
-                    entry.Target.ApplyDamage(entry.FinalDamage, entry.Source);
+                    entry.Target.ApplyDamage(entry.FinalDamage, entry.Source, entry.ExecuteThreshold, entry.SummonOnKill);
                 }
             }
 

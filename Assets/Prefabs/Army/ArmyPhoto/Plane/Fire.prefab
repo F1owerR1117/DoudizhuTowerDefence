@@ -45,13 +45,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 07f1c31703f0a164f9552f981a9c397e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  speed: 100
-  _useParabolic: 1
+  speed: 500
+  _useParabolic: 0
   _arcHeight: 3
   _maxLifetime: 9999
   _destroyOnShooterDeath: 1
   _destroyOnTargetDeath: 1
-  _explosionRadius: 20
+  _explosionRadius: 25
   bulletHitVFX: {fileID: 0}
   bulletExplosionVFX: {fileID: 1838046909990690133, guid: 80f9f28eb08550646981634c3a182951, type: 3}
   hitSound: {fileID: 0}

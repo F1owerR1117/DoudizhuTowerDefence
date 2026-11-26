@@ -217,6 +217,7 @@ MonoBehaviour:
   _hitCount: 4
   _maxTargets: 1
   _multiTargetRadius: 0
+  _unitTypeId: 
 --- !u!114 &9212530551953746291
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -319,8 +320,15 @@ MonoBehaviour:
   enableSummoner: 0
   summonPrefab: {fileID: 0}
   summonInterval: 8
+  summonCountPerCast: 1
   maxSummons: 5
   summonOnKill: 1
+  enableLeader: 0
+  leaderRadius: 4
+  leaderAtkPct: 0.2
+  leaderAttackSpeedPct: 0.2
+  leaderMoveSpeedPct: 0.15
+  leaderAffectSelf: 0
   enablePounce: 0
   pounceRange: 8
   pounceDuration: 0.35
@@ -328,6 +336,10 @@ MonoBehaviour:
   pounceInvulnerable: 0
   pounceInterruptible: 1
   pounceBlockOneShotAnim: 1
+  rhythm:
+    enable: 0
+    steps: []
+  legacyOnHitPassives: 0
 --- !u!114 &3663234041469825392
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -366,6 +378,26 @@ MonoBehaviour:
   tauntAuraVFX: {fileID: 0}
   tearVFX: {fileID: 0}
   tearDuration: 0.75
+  bleedVFX: {fileID: 0}
+  bleedDuration: 0.75
+  igniteVFX: {fileID: 0}
+  igniteDuration: 0.75
+  impairVFX: {fileID: 0}
+  impairDuration: 0.6
+  heavyStrikeVFX: {fileID: 0}
+  heavyStrikeDuration: 0.5
+  overheatVFX: {fileID: 0}
+  slowAuraVFX: {fileID: 0}
+  swarmAuraVFX: {fileID: 0}
+  leaderAuraVFX: {fileID: 0}
+  burstVFX: {fileID: 0}
+  burstDuration: 0.5
+  executeVFX: {fileID: 0}
+  executeDuration: 0.75
+  pounceVFX: {fileID: 0}
+  pounceDuration: 0.5
+  sniperMarkVFX: {fileID: 0}
+  sniperMarkDuration: 1
 --- !u!1 &3198210279745278981
 GameObject:
   m_ObjectHideFlags: 0
@@ -818,6 +850,19 @@ MonoBehaviour:
   summonClip: {fileID: 0}
   tauntClip: {fileID: 0}
   shieldWallClip: {fileID: 0}
+  bleedClip: {fileID: 0}
+  igniteClip: {fileID: 0}
+  impairClip: {fileID: 0}
+  heavyStrikeClip: {fileID: 0}
+  overheatClip: {fileID: 0}
+  shieldAbsorbClip: {fileID: 0}
+  slowAuraClip: {fileID: 0}
+  leaderClip: {fileID: 0}
+  burstClip: {fileID: 0}
+  executeClip: {fileID: 0}
+  pounceClip: {fileID: 0}
+  tearClip: {fileID: 0}
+  healClip: {fileID: 0}
   volumeScale: 1
   hitVolumeScale: 0.5
   maxPerClipConcurrent: 3

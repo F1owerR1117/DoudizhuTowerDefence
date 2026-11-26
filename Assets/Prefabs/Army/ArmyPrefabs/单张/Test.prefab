@@ -674,7 +674,7 @@ MonoBehaviour:
   _isBoss: 0
   _firePoint: {fileID: 0}
   _projectilePrefab: {fileID: 0}
-  _hp: 99
+  _hp: 400
   _atk: 10
   _attackInterval: 0.25
   _moveSpeed: 30
@@ -801,6 +801,10 @@ MonoBehaviour:
   pounceInvulnerable: 0
   pounceInterruptible: 1
   pounceBlockOneShotAnim: 1
+  rhythm:
+    enable: 0
+    steps: []
+  legacyOnHitPassives: 0
 --- !u!114 &5710157994565185254
 MonoBehaviour:
   m_ObjectHideFlags: 0

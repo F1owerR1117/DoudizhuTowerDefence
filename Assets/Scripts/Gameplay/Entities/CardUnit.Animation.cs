@@ -272,7 +272,11 @@ namespace DoudizhuTower.Gameplay.Entities
 
             // 重新订阅 UnitPassives 的事件（OnPoolDespawn 中已清除）
             var passives = GetComponentInChildren<UnitPassives>();
-            if (passives != null) passives.ResubscribeEvents();
+            if (passives != null)
+            {
+                passives.ResubscribeEvents();
+                passives.RestartRhythm();   // 攻击节拍回到第 1 格
+            }
         }
 
         /// <summary>
